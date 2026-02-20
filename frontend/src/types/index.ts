@@ -1,0 +1,43 @@
+export interface Product {
+  id: string;
+  name: string;
+  unit: string;
+}
+
+export interface PantryItem {
+  product_id: string;
+  name?: string;
+  unit?: string;
+  quantity: number;
+}
+
+export type DifficultyLevel = 'Easy' | 'Medium' | 'Hard';
+
+export interface RecipeIngredient {
+  product_id: string;
+  name: string;
+  unit: string;
+  quantity: number;
+}
+
+export interface Recipe {
+  id: string;
+  title: string;
+  description: string;
+  instructions: string | string[];
+  prep_time_minutes: number;
+  difficulty_level: DifficultyLevel;
+  image_url?: string;
+  ingredients?: RecipeIngredient[];
+}
+
+export interface GenerateResponse {
+  recipe: Recipe;
+  missing_ingredients: PantryItem[];
+}
+
+export interface RecipeFiltersState {
+  search: string;
+  maxTime: number;
+  difficulty: DifficultyLevel | '';
+}
