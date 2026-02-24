@@ -1,0 +1,1233 @@
+{
+  "info": {
+    "name": "Recipe Creator API",
+    "_postman_id": "recipe-creator-api-collection",
+    "description": "Full test suite for the Recipe Creator backend: Auth, Pantry, Recipes, Suggestions.\n\nUsage:\n1. Set the `baseUrl` variable (default: http://localhost:5000).\n2. Run **Register** or **Login** first — the JWT token is saved automatically to `authToken`.\n3. All protected endpoints read `authToken` from the collection variable automatically.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:5000",
+      "type": "string"
+    },
+    {
+      "key": "authToken",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "recipeId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "productId",
+      "value": "",
+      "type": "string",
+      "description": "Auto-set by 'Create Product'. Run that request first before using Pantry or Recipe endpoints."
+    }
+  ],
+  "item": [
+    {
+      "name": "Health",
+      "item": [
+        {
+          "name": "Home",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/",
+              "host": ["{{baseUrl}}"],
+              "path": [""]
+            },
+            "description": "GET / — sanity check that the API is running."
+          },
+          "response": []
+        },
+        {
+          "name": "Health Check",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/health",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "health"]
+            },
+            "description": "GET /api/health — checks API and database connectivity."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Auth",
+      "item": [
+        {
+          "name": "Register",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "    const json = pm.response.json();",
+                  "    pm.collectionVariables.set('authToken', json.token);",
+                  "    console.log('Token saved:', json.token);",
+                  "}",
+                  "pm.test('Status 201 Created', () => pm.response.to.have.status(201));",
+                  "pm.test('Response has token', () => {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json).to.have.property('token');",
+                  "    pm.expect(json).to.have.property('user');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"testuser@example.com\",\n  \"username\": \"testuser\",\n  \"password\": \"Password123!\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/register",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "register"]
+            },
+            "description": "POST /api/auth/register — creates a new user and returns a JWT token.\nToken is auto-saved to `authToken` collection variable."
+          },
+          "response": []
+        },
+        {
+          "name": "Register – missing fields (400)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 400 Bad Request', () => pm.response.to.have.status(400));",
+                  "pm.test('Error message present', () => {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json).to.have.property('error');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"incomplete@example.com\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/register",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "register"]
+            },
+            "description": "Expects 400 when required fields are missing."
+          },
+          "response": []
+        },
+        {
+          "name": "Register – duplicate email (409)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 409 Conflict', () => pm.response.to.have.status(409));",
+                  "pm.test('Conflict error message', () => {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json.error).to.include('already');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"testuser@example.com\",\n  \"username\": \"anotheruser\",\n  \"password\": \"Password123!\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/register",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "register"]
+            },
+            "description": "Expects 409 when the email is already registered."
+          },
+          "response": []
+        },
+        {
+          "name": "Login",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    const json = pm.response.json();",
+                  "    pm.collectionVariables.set('authToken', json.token);",
+                  "    console.log('Token saved:', json.token);",
+                  "}",
+                  "pm.test('Status 200 OK', () => pm.response.to.have.status(200));",
+                  "pm.test('Response has token and user', () => {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json).to.have.property('token');",
+                  "    pm.expect(json).to.have.property('user');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"testuser@example.com\",\n  \"password\": \"Password123!\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/login",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "login"]
+            },
+            "description": "POST /api/auth/login — authenticates and returns a JWT token.\nToken is auto-saved to `authToken` collection variable."
+          },
+          "response": []
+        },
+        {
+          "name": "Login – wrong password (401)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 401 Unauthorized', () => pm.response.to.have.status(401));",
+                  "pm.test('Error message present', () => {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json).to.have.property('error');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"testuser@example.com\",\n  \"password\": \"WrongPassword!\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/login",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "login"]
+            },
+            "description": "Expects 401 when credentials are incorrect."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Products",
+      "description": "Products are the shared ingredient catalog. Create a product first, then use its ID when adding pantry items or recipe ingredients.",
+      "item": [
+        {
+          "name": "List All Products",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200 OK', () => pm.response.to.have.status(200));",
+                  "pm.test('Response is an array', () => {",
+                  "    pm.expect(pm.response.json()).to.be.an('array');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/products/",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "products", ""]
+            },
+            "description": "GET /api/products/ — returns the full ingredient catalog. No auth required."
+          },
+          "response": []
+        },
+        {
+          "name": "Search Products",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200 OK', () => pm.response.to.have.status(200));",
+                  "pm.test('Response is an array', () => {",
+                  "    pm.expect(pm.response.json()).to.be.an('array');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/products/?search=egg",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "products", ""],
+              "query": [{ "key": "search", "value": "egg" }]
+            },
+            "description": "GET /api/products/?search=egg — filters the catalog by name substring. Useful for autocomplete."
+          },
+          "response": []
+        },
+        {
+          "name": "Create Product",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "    const json = pm.response.json();",
+                  "    pm.collectionVariables.set('productId', json.id);",
+                  "    console.log('Product ID saved:', json.id);",
+                  "}",
+                  "pm.test('Status 201 Created', () => pm.response.to.have.status(201));",
+                  "pm.test('Product has id, name, unit', () => {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json).to.have.property('id');",
+                  "    pm.expect(json).to.have.property('name');",
+                  "    pm.expect(json).to.have.property('unit');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{authToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Eggs\",\n  \"unit\": \"pieces\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/products/",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "products", ""]
+            },
+            "description": "POST /api/products/ — adds a new ingredient to the catalog. Requires auth.\nThe returned product `id` is auto-saved to the `productId` collection variable so you can immediately add it to your pantry or a recipe."
+          },
+          "response": []
+        },
+        {
+          "name": "Create Product – missing fields (400)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 400 Bad Request', () => pm.response.to.have.status(400));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{authToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Flour\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/products/",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "products", ""]
+            },
+            "description": "Expects 400 when unit is missing."
+          },
+          "response": []
+        },
+        {
+          "name": "Create Product – duplicate name (409)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 409 Conflict', () => pm.response.to.have.status(409));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{authToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Eggs\",\n  \"unit\": \"pieces\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/products/",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "products", ""]
+            },
+            "description": "Expects 409 when a product with that name already exists."
+          },
+          "response": []
+        },
+        {
+          "name": "Get Product by ID",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200 OK', () => pm.response.to.have.status(200));",
+                  "pm.test('Product has id, name, unit', () => {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json).to.have.property('id');",
+                  "    pm.expect(json).to.have.property('name');",
+                  "    pm.expect(json).to.have.property('unit');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/products/{{productId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "products", "{{productId}}"]
+            },
+            "description": "GET /api/products/<product_id> — returns a single product. No auth required."
+          },
+          "response": []
+        },
+        {
+          "name": "Get Product – not found (404)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 404 Not Found', () => pm.response.to.have.status(404));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/products/00000000-0000-0000-0000-000000000000",
+              "host": ["{{baseUrl}}"],
+              "path": [
+                "api",
+                "products",
+                "00000000-0000-0000-0000-000000000000"
+              ]
+            },
+            "description": "Expects 404 for a non-existent product UUID."
+          },
+          "response": []
+        },
+        {
+          "name": "Update Product",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200 OK', () => pm.response.to.have.status(200));",
+                  "pm.test('Unit updated', () => {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json.unit).to.eql('dozen');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{authToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"unit\": \"dozen\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/products/{{productId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "products", "{{productId}}"]
+            },
+            "description": "PUT /api/products/<product_id> — updates name and/or unit. Partial update supported."
+          },
+          "response": []
+        },
+        {
+          "name": "Delete Product",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 204 No Content', () => pm.response.to.have.status(204));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{authToken}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/products/{{productId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "products", "{{productId}}"]
+            },
+            "description": "DELETE /api/products/<product_id> — removes from the catalog. Returns 204.\nWARNING: cascades to all pantry items and recipe ingredients referencing this product."
+          },
+          "response": []
+        },
+        {
+          "name": "Delete Product – not found (404)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 404 Not Found', () => pm.response.to.have.status(404));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{authToken}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/products/00000000-0000-0000-0000-000000000000",
+              "host": ["{{baseUrl}}"],
+              "path": [
+                "api",
+                "products",
+                "00000000-0000-0000-0000-000000000000"
+              ]
+            },
+            "description": "Expects 404 when trying to delete a non-existent product."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Pantry",
+      "item": [
+        {
+          "name": "List Pantry Items",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200 OK', () => pm.response.to.have.status(200));",
+                  "pm.test('Response is an array', () => {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json).to.be.an('array');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{authToken}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/pantry/",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "pantry", ""]
+            },
+            "description": "GET /api/pantry/ — returns all pantry items for the authenticated user."
+          },
+          "response": []
+        },
+        {
+          "name": "Add Pantry Item",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 201 Created', () => pm.response.to.have.status(201));",
+                  "pm.test('Item returned', () => {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json).to.have.property('product_id');",
+                  "    pm.expect(json).to.have.property('quantity');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{authToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"product_id\": \"{{productId}}\",\n  \"quantity\": 2.5\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/pantry/",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "pantry", ""]
+            },
+            "description": "POST /api/pantry/ — adds a product to the user's pantry.\nReplace `productId` collection variable with a real product UUID."
+          },
+          "response": []
+        },
+        {
+          "name": "Add Pantry Item – missing fields (400)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 400 Bad Request', () => pm.response.to.have.status(400));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{authToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"product_id\": \"{{productId}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/pantry/",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "pantry", ""]
+            },
+            "description": "Expects 400 when quantity is missing."
+          },
+          "response": []
+        },
+        {
+          "name": "Update Pantry Item",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200 OK', () => pm.response.to.have.status(200));",
+                  "pm.test('Updated quantity reflected', () => {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json).to.have.property('quantity');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{authToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"quantity\": 5.0\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/pantry/{{productId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "pantry", "{{productId}}"]
+            },
+            "description": "PUT /api/pantry/<product_id> — updates the quantity of a pantry item."
+          },
+          "response": []
+        },
+        {
+          "name": "Update Pantry Item – not found (404)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 404 Not Found', () => pm.response.to.have.status(404));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{authToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"quantity\": 1.0\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/pantry/nonexistent-product-id",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "pantry", "nonexistent-product-id"]
+            },
+            "description": "Expects 404 when the product is not in the pantry."
+          },
+          "response": []
+        },
+        {
+          "name": "Delete Pantry Item",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 204 No Content', () => pm.response.to.have.status(204));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{authToken}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/pantry/{{productId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "pantry", "{{productId}}"]
+            },
+            "description": "DELETE /api/pantry/<product_id> — removes the item from the pantry. Returns 204."
+          },
+          "response": []
+        },
+        {
+          "name": "Delete Pantry Item – not found (404)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 404 Not Found', () => pm.response.to.have.status(404));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{authToken}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/pantry/nonexistent-product-id",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "pantry", "nonexistent-product-id"]
+            },
+            "description": "Expects 404 when the product is not in the pantry."
+          },
+          "response": []
+        },
+        {
+          "name": "Pantry – no token (401)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 401 Unauthorized', () => pm.response.to.have.status(401));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/pantry/",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "pantry", ""]
+            },
+            "description": "Expects 401 when no Authorization header is provided."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Recipes",
+      "item": [
+        {
+          "name": "List Recipes",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200 OK', () => pm.response.to.have.status(200));",
+                  "pm.test('Response is an array', () => {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json).to.be.an('array');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{authToken}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/recipes/",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "recipes", ""]
+            },
+            "description": "GET /api/recipes/ — returns all recipes owned by the authenticated user."
+          },
+          "response": []
+        },
+        {
+          "name": "List Recipes – with search filter",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200 OK', () => pm.response.to.have.status(200));",
+                  "pm.test('Response is an array', () => {",
+                  "    pm.expect(pm.response.json()).to.be.an('array');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{authToken}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/recipes/?search=pasta&max_prep_time=30",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "recipes", ""],
+              "query": [
+                { "key": "search", "value": "pasta" },
+                { "key": "max_prep_time", "value": "30" }
+              ]
+            },
+            "description": "GET /api/recipes/?search=pasta&max_prep_time=30 — filters recipes by title substring and maximum prep time."
+          },
+          "response": []
+        },
+        {
+          "name": "Generate Recipe – Pantry Only",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "    const json = pm.response.json();",
+                  "    pm.collectionVariables.set('recipeId', json.id);",
+                  "    console.log('Pantry-only recipe saved, ID:', json.id);",
+                  "}",
+                  "pm.test('Status 201 Created', () => pm.response.to.have.status(201));",
+                  "pm.test('Recipe has required fields', () => {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json).to.have.property('id');",
+                  "    pm.expect(json).to.have.property('title');",
+                  "    pm.expect(json).to.have.property('instructions');",
+                  "    pm.expect(json).to.have.property('ingredients');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{authToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"product_ids\": [\"{{productId}}\"],\n  \"preferences\": \"quick weeknight dinner\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/recipes/generate/pantry-only",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "recipes", "generate", "pantry-only"]
+            },
+            "description": "POST /api/recipes/generate/pantry-only — generates a recipe using STRICTLY the selected pantry products.\n\nThe AI will not invent or add any ingredient outside the given list.\n\nWorkflow:\n  1. Run 'Products → Create Product' to get a productId.\n  2. Run 'Pantry → Add Pantry Item' to add it to your pantry.\n  3. Call this endpoint with those product_ids.\n\nOptional 'preferences' field: free-text hints like 'vegetarian', 'Italian', 'under 20 minutes'.\n\nReturns 503 if OPENAI_API_KEY is not set in the backend .env."
+          },
+          "response": []
+        },
+        {
+          "name": "Generate Recipe – AI Enhanced",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "    const json = pm.response.json();",
+                  "    pm.collectionVariables.set('recipeId', json.id);",
+                  "    console.log('AI-enhanced recipe saved, ID:', json.id);",
+                  "}",
+                  "pm.test('Status 201 Created', () => pm.response.to.have.status(201));",
+                  "pm.test('Recipe has required fields', () => {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json).to.have.property('id');",
+                  "    pm.expect(json).to.have.property('title');",
+                  "    pm.expect(json).to.have.property('instructions');",
+                  "    pm.expect(json).to.have.property('ingredients');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{authToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"product_ids\": [\"{{productId}}\"],\n  \"preferences\": \"quick weeknight dinner\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/recipes/generate/ai-enhanced",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "recipes", "generate", "ai-enhanced"]
+            },
+            "description": "POST /api/recipes/generate/ai-enhanced — generates a recipe using the selected pantry products as a base. The AI may also suggest extra ingredients it decides would improve the dish.\n\nAny extra ingredients that do not yet exist in the product catalog are auto-created.\n\nThe response includes 'extra_ingredients_added' listing any new products created by the AI.\n\nOptional 'preferences' field: free-text hints like 'Italian', 'healthy', 'under 30 minutes'.\n\nReturns 503 if OPENAI_API_KEY is not set in the backend .env."
+          },
+          "response": []
+        },
+        {
+          "name": "Generate Recipe – no product_ids (400)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 400 Bad Request', () => pm.response.to.have.status(400));",
+                  "pm.test('Error message present', () => {",
+                  "    pm.expect(pm.response.json()).to.have.property('error');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{authToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"preferences\": \"Italian\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/recipes/generate/pantry-only",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "recipes", "generate", "pantry-only"]
+            },
+            "description": "Expects 400 when product_ids is missing or empty."
+          },
+          "response": []
+        },
+        {
+          "name": "Generate Recipe – product not in pantry (404)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 404 Not Found', () => pm.response.to.have.status(404));",
+                  "pm.test('missing array in response', () => {",
+                  "    pm.expect(pm.response.json()).to.have.property('missing');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{authToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"product_ids\": [\"00000000-0000-0000-0000-000000000000\"]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/recipes/generate/pantry-only",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "recipes", "generate", "pantry-only"]
+            },
+            "description": "Expects 404 when a product_id is not in the user's pantry."
+          },
+          "response": []
+        },
+        {
+          "name": "Get Recipe by ID",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200 OK', () => pm.response.to.have.status(200));",
+                  "pm.test('Recipe has correct id', () => {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json).to.have.property('id');",
+                  "    pm.expect(json).to.have.property('title');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{authToken}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/recipes/{{recipeId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "recipes", "{{recipeId}}"]
+            },
+            "description": "GET /api/recipes/<recipe_id> — fetches a specific recipe. Uses `recipeId` saved by Create Recipe."
+          },
+          "response": []
+        },
+        {
+          "name": "Get Recipe – not found (404)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 404 Not Found', () => pm.response.to.have.status(404));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{authToken}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/recipes/00000000-0000-0000-0000-000000000000",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "recipes", "00000000-0000-0000-0000-000000000000"]
+            },
+            "description": "Expects 404 for a recipe ID that does not exist."
+          },
+          "response": []
+        },
+        {
+          "name": "Update Recipe",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200 OK', () => pm.response.to.have.status(200));",
+                  "pm.test('Title updated', () => {",
+                  "    const json = pm.response.json();",
+                  "    pm.expect(json.title).to.eql('Spaghetti Carbonara (Updated)');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{authToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Spaghetti Carbonara (Updated)\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/recipes/{{recipeId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "recipes", "{{recipeId}}"]
+            },
+            "description": "PUT /api/recipes/<recipe_id> — updates only the recipe title."
+          },
+          "response": []
+        },
+        {
+          "name": "Update Recipe – no body (400)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 400 Bad Request', () => pm.response.to.have.status(400));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{authToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": ""
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/recipes/{{recipeId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "recipes", "{{recipeId}}"]
+            },
+            "description": "Expects 400 when the request body is empty."
+          },
+          "response": []
+        },
+        {
+          "name": "Delete Recipe",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 204 No Content', () => pm.response.to.have.status(204));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{authToken}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/recipes/{{recipeId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "recipes", "{{recipeId}}"]
+            },
+            "description": "DELETE /api/recipes/<recipe_id> — deletes the recipe. Returns 204. Uses `recipeId` saved by Create Recipe."
+          },
+          "response": []
+        },
+        {
+          "name": "Delete Recipe – not found (404)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 404 Not Found', () => pm.response.to.have.status(404));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{authToken}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/recipes/00000000-0000-0000-0000-000000000000",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "recipes", "00000000-0000-0000-0000-000000000000"]
+            },
+            "description": "Expects 404 when trying to delete a non-existent recipe."
+          },
+          "response": []
+        }
+      ]
+    }
+  ]
+}

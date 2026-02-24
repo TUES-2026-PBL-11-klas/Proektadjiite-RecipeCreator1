@@ -4,3 +4,7 @@ flask-cors
 flask-sqlalchemy
 psycopg2-binary
 python-dotenv
+flask-jwt-extended
+openai
+pytest
+pytest-flask
