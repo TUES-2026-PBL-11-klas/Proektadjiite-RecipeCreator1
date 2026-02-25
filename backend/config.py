@@ -6,10 +6,14 @@ load_dotenv()
 
 class Config:
     SECRET_KEY = os.getenv("SECRET_KEY", "dev-secret-key")
-    DATABASE_URL = os.getenv("DATABASE_URL")
+    DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///app.db")
 
-    # Fix SSL and connection pooling for Supabase
-    SQLALCHEMY_DATABASE_URI = DATABASE_URL.replace("postgresql://", "postgresql+psycopg2://") if DATABASE_URL else None
+    # Handle database URL safely
+    if DATABASE_URL and DATABASE_URL.startswith("postgresql"):
+        SQLALCHEMY_DATABASE_URI = DATABASE_URL.replace("postgresql://", "postgresql+psycopg2://")
+    else:
+        SQLALCHEMY_DATABASE_URI = DATABASE_URL or "sqlite:///app.db"
+    
     SQLALCHEMY_ENGINE_OPTIONS = {
         "pool_size": 10,
         "pool_recycle": 3600,

@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
-import { ShoppingBasket, Plus, Trash2, Save, Search, Check } from 'lucide-react';
-import { getPantry, savePantry, searchIngredientSuggestions } from '@/lib/api';
-import { PantryItem } from '@/types';
+import { ShoppingBasket, Plus, Trash2, Save, Search, Check, AlertCircle } from 'lucide-react';
+import { getPantry, addToPantry, updatePantryItem, removeFromPantry, searchIngredientSuggestions, createProduct } from '@/lib/api';
+import { PantryItem, Product } from '@/types';
 import { LoadingSpinner } from '@/components/LoadingSpinner';
 import { PageHeader } from '@/components/PageHeader';
 import { EmptyState } from '@/components/EmptyState';
@@ -11,25 +11,49 @@ const Pantry = () => {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [error, setError] = useState('');
   const [search, setSearch] = useState('');
-  const [suggestions, setSuggestions] = useState<ReturnType<typeof searchIngredientSuggestions>>([]);
+  const [suggestions, setSuggestions] = useState<Product[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const searchRef = useRef<HTMLDivElement>(null);
 
+  // Load pantry items on mount
   useEffect(() => {
-    getPantry().then(data => { setItems(data); setLoading(false); });
+    const loadPantry = async () => {
+      try {
+        setLoading(true);
+        setError('');
+        const data = await getPantry();
+        setItems(data);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Failed to load pantry');
+      } finally {
+        setLoading(false);
+      }
+    };
+    loadPantry();
   }, []);
 
+  // Search for ingredients
   useEffect(() => {
-    if (search.trim()) {
-      setSuggestions(searchIngredientSuggestions(search));
-      setShowSuggestions(true);
-    } else {
-      setSuggestions([]);
-      setShowSuggestions(false);
-    }
+    const searchIngredients = async () => {
+      if (search.trim()) {
+        try {
+          const results = await searchIngredientSuggestions(search);
+          setSuggestions(results);
+          setShowSuggestions(true);
+        } catch {
+          setSuggestions([]);
+        }
+      } else {
+        setSuggestions([]);
+        setShowSuggestions(false);
+      }
+    };
+    searchIngredients();
   }, [search]);
 
+  // Close suggestions when clicking outside
   useEffect(() => {
     const handler = (e: MouseEvent) => {
       if (searchRef.current && !searchRef.current.contains(e.target as Node)) {
@@ -40,29 +64,68 @@ const Pantry = () => {
     return () => document.removeEventListener('mousedown', handler);
   }, []);
 
-  const addIngredient = (item: { product_id: string; name: string; unit: string }) => {
-    if (items.find(i => i.product_id === item.product_id)) return;
-    setItems(prev => [...prev, { ...item, quantity: 1 }]);
-    setSearch('');
-    setShowSuggestions(false);
+  // Add ingredient to pantry
+  const addIngredient = async (product: Product) => {
+    if (items.find(i => i.product_id === product.id)) {
+      setError(`${product.name} is already in your pantry`);
+      return;
+    }
+    
+    setSaving(true);
+    setError('');
+    try {
+      const result = await addToPantry(product.id, 1);
+      setItems(prev => [...prev, result]);
+      setSearch('');
+      setShowSuggestions(false);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to add ingredient');
+    } finally {
+      setSaving(false);
+    }
   };
 
-  const updateQuantity = (product_id: string, qty: number) => {
-    setItems(prev => prev.map(i => i.product_id === product_id ? { ...i, quantity: qty } : i));
+  // Update quantity
+  const updateQuantity = (productId: string, qty: number) => {
+    setItems(prev => prev.map(i => i.product_id === productId ? { ...i, quantity: qty } : i));
   };
 
-  const removeItem = (product_id: string) => {
-    setItems(prev => prev.filter(i => i.product_id !== product_id));
+  // Remove ingredient from pantry
+  const removeItem = async (productId: string) => {
+    setSaving(true);
+    setError('');
+    try {
+      await removeFromPantry(productId);
+      setItems(prev => prev.filter(i => i.product_id !== productId));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to remove item');
+    } finally {
+      setSaving(false);
+    }
   };
 
+  // Save all pantry changes
   const handleSave = async () => {
     const invalid = items.find(i => i.quantity <= 0);
-    if (invalid) { alert('All quantities must be greater than 0.'); return; }
+    if (invalid) { 
+      setError('All quantities must be greater than 0.');
+      return; 
+    }
+    
     setSaving(true);
-    await savePantry(items);
-    setSaving(false);
-    setSaved(true);
-    setTimeout(() => setSaved(false), 2500);
+    setError('');
+    try {
+      // Update all items (in real app, backend would handle this batch)
+      for (const item of items) {
+        await updatePantryItem(item.product_id, item.quantity);
+      }
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2500);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to save pantry');
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -87,6 +150,14 @@ const Pantry = () => {
         }
       />
 
+      {/* Error message */}
+      {error && (
+        <div className="mb-4 p-3 bg-destructive/10 border border-destructive/20 rounded-lg flex items-start gap-2">
+          <AlertCircle size={16} className="text-destructive shrink-0 mt-0.5" />
+          <p className="text-sm text-destructive">{error}</p>
+        </div>
+      )}
+
       {/* Search */}
       <div className="bg-card border border-border rounded-xl shadow-sm p-4 mb-6" ref={searchRef}>
         <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">
@@ -101,14 +172,16 @@ const Pantry = () => {
             value={search}
             onChange={e => setSearch(e.target.value)}
             onFocus={() => search && setShowSuggestions(true)}
+            disabled={saving}
           />
           {showSuggestions && suggestions.length > 0 && (
             <div className="absolute top-full left-0 right-0 mt-1 bg-popover border border-border rounded-lg shadow-lg z-20 overflow-hidden">
               {suggestions.map(s => (
                 <button
-                  key={s.product_id}
-                  className="w-full flex items-center gap-2 px-3 py-2.5 text-sm text-left hover:bg-muted transition-colors cursor-pointer border-b border-border last:border-0"
+                  key={s.id}
+                  className="w-full flex items-center gap-2 px-3 py-2.5 text-sm text-left hover:bg-muted transition-colors cursor-pointer border-b border-border last:border-0 disabled:opacity-50"
                   onClick={() => addIngredient(s)}
+                  disabled={saving}
                 >
                   <Plus size={13} className="text-primary shrink-0" />
                   <span className="flex-1 font-medium text-foreground">{s.name}</span>
@@ -161,6 +234,7 @@ const Pantry = () => {
                   value={item.quantity}
                   onChange={e => updateQuantity(item.product_id, parseFloat(e.target.value) || 0)}
                   className="w-24 sm:w-full px-2.5 py-1.5 border border-input rounded-lg bg-background text-foreground text-sm text-right focus:outline-none focus:ring-2 focus:ring-ring transition"
+                  disabled={saving}
                 />
                 <span className="text-sm text-muted-foreground sm:hidden">{item.unit}</span>
               </div>
@@ -169,8 +243,9 @@ const Pantry = () => {
 
               <button
                 onClick={() => removeItem(item.product_id)}
-                className="p-1.5 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-lg transition-colors cursor-pointer sm:mx-auto"
+                className="p-1.5 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-lg transition-colors cursor-pointer sm:mx-auto disabled:opacity-50"
                 title="Remove"
+                disabled={saving}
               >
                 <Trash2 size={15} />
               </button>

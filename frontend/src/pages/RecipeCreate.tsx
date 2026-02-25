@@ -25,7 +25,7 @@ const RecipeCreate = () => {
   const [instructions, setInstructions] = useState('');
   const [ingredients, setIngredients] = useState<RecipeIngredient[]>([]);
   const [ingSearch, setIngSearch] = useState('');
-  const [suggestions, setSuggestions] = useState<ReturnType<typeof searchIngredientSuggestions>>([]);
+  const [suggestions, setSuggestions] = useState<any[]>([]);
 
   const validate = () => {
     const e: Record<string, string> = {};
@@ -37,9 +37,18 @@ const RecipeCreate = () => {
     return Object.keys(e).length === 0;
   };
 
-  const handleIngSearch = (q: string) => {
+  const handleIngSearch = async (q: string) => {
     setIngSearch(q);
-    setSuggestions(q ? searchIngredientSuggestions(q) : []);
+    if (q.trim()) {
+      try {
+        const results = await searchIngredientSuggestions(q);
+        setSuggestions(results);
+      } catch {
+        setSuggestions([]);
+      }
+    } else {
+      setSuggestions([]);
+    }
   };
 
   const addIngredient = (s: { product_id: string; name: string; unit: string }) => {

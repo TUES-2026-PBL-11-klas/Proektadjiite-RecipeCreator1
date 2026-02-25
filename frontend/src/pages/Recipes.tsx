@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { BookOpen, Search, Plus, SlidersHorizontal, ChefHat, BookMarked } from 'lucide-react';
+import { BookOpen, Search, Plus, SlidersHorizontal, ChefHat, BookMarked, AlertCircle } from 'lucide-react';
 import { getRecipes } from '@/lib/api';
 import { Recipe, DifficultyLevel } from '@/types';
 import { RecipeCard, RecipeCardSkeleton } from '@/components/RecipeCard';
@@ -12,17 +12,34 @@ const DIFFICULTIES: DifficultyLevel[] = ['Easy', 'Medium', 'Hard'];
 const Recipes = () => {
   const [recipes, setRecipes] = useState<Recipe[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
   const [search, setSearch] = useState('');
   const [maxTime, setMaxTime] = useState(180);
   const [difficulty, setDifficulty] = useState<DifficultyLevel | ''>('');
   const [showFilters, setShowFilters] = useState(false);
 
   useEffect(() => {
-    setLoading(true);
-    const t = setTimeout(() => {
-      getRecipes({ search, maxTime, difficulty }).then(d => { setRecipes(d); setLoading(false); });
-    }, 300);
-    return () => clearTimeout(t);
+    const loadRecipes = async () => {
+      setLoading(true);
+      setError('');
+      const debounceTimer = setTimeout(async () => {
+        try {
+          const data = await getRecipes({ 
+            search: search || undefined, 
+            maxTime, 
+            difficulty: difficulty || undefined 
+          });
+          setRecipes(data);
+        } catch (err) {
+          setError(err instanceof Error ? err.message : 'Failed to load recipes');
+          setRecipes([]);
+        } finally {
+          setLoading(false);
+        }
+      }, 300);
+      return () => clearTimeout(debounceTimer);
+    };
+    loadRecipes();
   }, [search, maxTime, difficulty]);
 
   const diffBtnClass = (d: DifficultyLevel | '') => {
@@ -54,6 +71,14 @@ const Recipes = () => {
         }
       />
 
+      {/* Error message */}
+      {error && (
+        <div className="mb-4 p-3 bg-destructive/10 border border-destructive/20 rounded-lg flex items-start gap-2">
+          <AlertCircle size={16} className="text-destructive shrink-0 mt-0.5" />
+          <p className="text-sm text-destructive">{error}</p>
+        </div>
+      )}
+
       {/* Filters card */}
       <div className="bg-card border border-border rounded-xl shadow-sm p-4 mb-6 space-y-4">
         {/* Search + filter toggle */}
@@ -65,6 +90,7 @@ const Recipes = () => {
               placeholder="Search recipes…"
               value={search}
               onChange={e => setSearch(e.target.value)}
+              disabled={loading}
             />
           </div>
           <button
@@ -95,6 +121,7 @@ const Recipes = () => {
                 value={maxTime}
                 onChange={e => setMaxTime(Number(e.target.value))}
                 className="w-full accent-primary"
+                disabled={loading}
               />
               <div className="flex justify-between text-xs text-muted-foreground">
                 <span>5 min</span><span>3 hrs</span>
@@ -104,7 +131,12 @@ const Recipes = () => {
               <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Difficulty</label>
               <div className="flex gap-2 flex-wrap">
                 {(['', ...DIFFICULTIES] as (DifficultyLevel | '')[]).map(d => (
-                  <button key={d || 'all'} onClick={() => setDifficulty(d)} className={diffBtnClass(d)}>
+                  <button 
+                    key={d || 'all'} 
+                    onClick={() => setDifficulty(d)} 
+                    className={diffBtnClass(d)}
+                    disabled={loading}
+                  >
                     {d || 'All'}
                   </button>
                 ))}
@@ -140,3 +172,4 @@ const Recipes = () => {
 };
 
 export default Recipes;
+
