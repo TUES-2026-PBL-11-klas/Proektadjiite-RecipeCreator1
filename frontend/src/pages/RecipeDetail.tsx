@@ -2,8 +2,10 @@ import { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { Clock, ChefHat, ArrowLeft, Trash2, Pencil } from 'lucide-react';
 import { getRecipeById, deleteRecipe } from '@/lib/api';
+import { computeRecipeNutrition } from '@/lib/nutrition';
 import { Recipe } from '@/types';
 import { IngredientList } from '@/components/IngredientList';
+import { NutritionPanel } from '@/components/NutritionPanel';
 import { LoadingSpinner } from '@/components/LoadingSpinner';
 import { EmptyState } from '@/components/EmptyState';
 
@@ -21,7 +23,14 @@ const RecipeDetail = () => {
   useEffect(() => {
     if (!id) return;
     getRecipeById(id)
-      .then(data => { setRecipe(data); setLoading(false); })
+      .then(data => {
+        // Compute nutrition if not already present and ingredients exist
+        if (!data.nutrition && data.ingredients && data.ingredients.length > 0) {
+          data.nutrition = computeRecipeNutrition(data.ingredients);
+        }
+        setRecipe(data);
+        setLoading(false);
+      })
       .catch(() => setLoading(false));
   }, [id]);
 
@@ -125,7 +134,7 @@ const RecipeDetail = () => {
           </div>
         </div>
 
-        {/* Right: ingredients + instructions */}
+        {/* Right: ingredients + nutrition + instructions */}
         <div className="space-y-5">
           {recipe.ingredients && recipe.ingredients.length > 0 && (
             <div className="bg-card border border-border rounded-xl shadow-sm p-5">
@@ -133,6 +142,9 @@ const RecipeDetail = () => {
               <IngredientList items={recipe.ingredients} />
             </div>
           )}
+
+          {/* Nutrition */}
+          <NutritionPanel nutrition={recipe.nutrition} />
 
           <div className="bg-card border border-border rounded-xl shadow-sm p-5">
             <h2 className="text-base font-semibold text-foreground font-serif mb-4">Instructions</h2>
