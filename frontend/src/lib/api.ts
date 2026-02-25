@@ -1,4 +1,5 @@
 import { PantryItem, Recipe, GenerateResponse, RecipeFiltersState } from '@/types';
+import { computeRecipeNutrition } from '@/lib/nutrition';
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || '';
 
@@ -228,6 +229,13 @@ export async function generateRecipe(pantry: PantryItem[]): Promise<GenerateResp
     });
   } catch {
     await new Promise(r => setTimeout(r, 1800));
+    const ingredients = pantry.slice(0, 4).map(p => ({
+      product_id: p.product_id,
+      name: p.name || p.product_id,
+      unit: p.unit || 'pcs',
+      quantity: p.quantity,
+    }));
+    const nutrition = computeRecipeNutrition(ingredients);
     return {
       recipe: {
         id: `gen-${Date.now()}`,
@@ -243,12 +251,8 @@ export async function generateRecipe(pantry: PantryItem[]): Promise<GenerateResp
           'Combine with pasta or rice and serve hot.',
           'Garnish with fresh herbs and enjoy!',
         ],
-        ingredients: pantry.slice(0, 4).map(p => ({
-          product_id: p.product_id,
-          name: p.name || p.product_id,
-          unit: p.unit || 'pcs',
-          quantity: p.quantity,
-        })),
+        ingredients,
+        nutrition,
       },
       missing_ingredients: [
         { product_id: 'cream', name: 'Heavy Cream', unit: 'ml', quantity: 100 },

@@ -5,6 +5,7 @@ import { PantryItem, GenerateResponse } from '@/types';
 import { LoadingSpinner } from '@/components/LoadingSpinner';
 import { IngredientList } from '@/components/IngredientList';
 import { MissingIngredients } from '@/components/MissingIngredients';
+import { NutritionPanel } from '@/components/NutritionPanel';
 import { PageHeader } from '@/components/PageHeader';
 import { EmptyState } from '@/components/EmptyState';
 
@@ -170,6 +171,9 @@ const Generate = () => {
                   <IngredientList items={result.recipe.ingredients} missing={missingIds} />
                 </div>
               )}
+
+              {/* Nutrition */}
+              <NutritionPanel nutrition={result.recipe.nutrition} />
 
               {/* Missing */}
               <MissingIngredients missing={result.missing_ingredients} />

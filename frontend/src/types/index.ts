@@ -20,6 +20,14 @@ export interface RecipeIngredient {
   quantity: number;
 }
 
+export interface Nutrition {
+  calories_kcal: number;
+  protein_g: number;
+  carbs_g: number;
+  fat_g: number;
+  sugar_g: number;
+}
+
 export interface Recipe {
   id: string;
   title: string;
@@ -29,6 +37,7 @@ export interface Recipe {
   difficulty_level: DifficultyLevel;
   image_url?: string;
   ingredients?: RecipeIngredient[];
+  nutrition?: Nutrition;
 }
 
 export interface GenerateResponse {
