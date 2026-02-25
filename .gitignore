@@ -12,6 +12,7 @@ ENV/
 dist/
 build/
 .pytest_cache/
+package-lock.json
 
 # Flask
 instance/
