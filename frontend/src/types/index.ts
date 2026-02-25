@@ -11,7 +11,7 @@ export interface PantryItem {
   quantity: number;
 }
 
-export type DifficultyLevel = 'Easy' | 'Medium' | 'Hard';
+export type DifficultyLevel = "Easy" | "Medium" | "Hard";
 
 export interface RecipeIngredient {
   product_id: string;
@@ -53,5 +53,5 @@ export interface GenerateResponse {
 export interface RecipeFiltersState {
   search: string;
   maxTime: number;
-  difficulty: DifficultyLevel | '';
+  difficulty: DifficultyLevel | "";
 }

@@ -31,12 +31,54 @@ const App = () => (
               <Routes>
                 <Route path="/" element={<Index />} />
                 <Route path="/login" element={<Login />} />
-                <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
-                <Route path="/pantry" element={<ProtectedRoute><Pantry /></ProtectedRoute>} />
-                <Route path="/products" element={<ProtectedRoute><Products /></ProtectedRoute>} />
-                <Route path="/recipes" element={<ProtectedRoute><Recipes /></ProtectedRoute>} />
-                <Route path="/recipes/:id" element={<ProtectedRoute><RecipeDetail /></ProtectedRoute>} />
-                <Route path="/generate" element={<ProtectedRoute><Generate /></ProtectedRoute>} />
+                <Route
+                  path="/dashboard"
+                  element={
+                    <ProtectedRoute>
+                      <Dashboard />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/pantry"
+                  element={
+                    <ProtectedRoute>
+                      <Pantry />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/products"
+                  element={
+                    <ProtectedRoute>
+                      <Products />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/recipes"
+                  element={
+                    <ProtectedRoute>
+                      <Recipes />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/recipes/:id"
+                  element={
+                    <ProtectedRoute>
+                      <RecipeDetail />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/generate"
+                  element={
+                    <ProtectedRoute>
+                      <Generate />
+                    </ProtectedRoute>
+                  }
+                />
                 <Route path="*" element={<NotFound />} />
               </Routes>
             </main>

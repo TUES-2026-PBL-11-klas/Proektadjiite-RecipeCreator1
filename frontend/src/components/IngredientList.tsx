@@ -1,4 +1,4 @@
-import { PantryItem, RecipeIngredient } from '@/types';
+import { PantryItem, RecipeIngredient } from "@/types";
 
 interface IngredientListProps {
   items: (PantryItem | RecipeIngredient)[];
@@ -6,9 +6,17 @@ interface IngredientListProps {
   showQuantity?: boolean;
 }
 
-export function IngredientList({ items, missing = [], showQuantity = true }: IngredientListProps) {
+export function IngredientList({
+  items,
+  missing = [],
+  showQuantity = true,
+}: IngredientListProps) {
   if (!items || items.length === 0) {
-    return <p className="text-sm text-muted-foreground italic">No ingredients listed.</p>;
+    return (
+      <p className="text-sm text-muted-foreground italic">
+        No ingredients listed.
+      </p>
+    );
   }
 
   return (
@@ -18,17 +26,23 @@ export function IngredientList({ items, missing = [], showQuantity = true }: Ing
         return (
           <li
             key={item.product_id}
-            className={`flex items-center gap-2.5 text-sm py-1 border-b border-border last:border-0 ${isMissing ? 'text-destructive' : 'text-foreground'}`}
+            className={`flex items-center gap-2.5 text-sm py-1 border-b border-border last:border-0 ${isMissing ? "text-destructive" : "text-foreground"}`}
           >
-            <span className={`w-2 h-2 rounded-full shrink-0 ${isMissing ? 'bg-destructive' : 'bg-primary'}`} />
-            <span className="flex-1 font-medium">{'product_name' in item ? item.product_name : item.product_id}</span>
+            <span
+              className={`w-2 h-2 rounded-full shrink-0 ${isMissing ? "bg-destructive" : "bg-primary"}`}
+            />
+            <span className="flex-1 font-medium">
+              {"product_name" in item ? item.product_name : item.product_id}
+            </span>
             {showQuantity && (
               <span className="text-muted-foreground text-xs">
                 {item.quantity} {item.unit}
               </span>
             )}
             {isMissing && (
-              <span className="text-xs font-semibold bg-destructive/10 text-destructive px-1.5 py-0.5 rounded">Missing</span>
+              <span className="text-xs font-semibold bg-destructive/10 text-destructive px-1.5 py-0.5 rounded">
+                Missing
+              </span>
             )}
           </li>
         );

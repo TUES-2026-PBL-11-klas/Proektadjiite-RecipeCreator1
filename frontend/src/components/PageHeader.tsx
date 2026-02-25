@@ -1,4 +1,4 @@
-import { ReactNode } from 'react';
+import { ReactNode } from "react";
 
 interface PageHeaderProps {
   icon?: ReactNode;
@@ -7,7 +7,12 @@ interface PageHeaderProps {
   actions?: ReactNode;
 }
 
-export function PageHeader({ icon, title, subtitle, actions }: PageHeaderProps) {
+export function PageHeader({
+  icon,
+  title,
+  subtitle,
+  actions,
+}: PageHeaderProps) {
   return (
     <div className="relative flex flex-col items-center text-center mb-8 pb-6 border-b border-border">
       {icon && (
@@ -15,8 +20,14 @@ export function PageHeader({ icon, title, subtitle, actions }: PageHeaderProps) 
           {icon}
         </div>
       )}
-      <h1 className="text-3xl font-bold text-foreground font-serif leading-tight">{title}</h1>
-      {subtitle && <p className="text-sm text-muted-foreground mt-1.5 max-w-sm">{subtitle}</p>}
+      <h1 className="text-3xl font-bold text-foreground font-serif leading-tight">
+        {title}
+      </h1>
+      {subtitle && (
+        <p className="text-sm text-muted-foreground mt-1.5 max-w-sm">
+          {subtitle}
+        </p>
+      )}
       {actions && (
         <div className="absolute right-0 top-0 flex items-center gap-2">
           {actions}

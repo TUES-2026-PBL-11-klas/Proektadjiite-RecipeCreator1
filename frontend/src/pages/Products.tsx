@@ -1,31 +1,62 @@
-import { useState, useEffect, useRef } from 'react';
-import { Package, Plus, Trash2, Pencil, Search, Check, X, AlertCircle } from 'lucide-react';
-import { searchProducts, createProduct, updateProduct, deleteProduct } from '@/lib/api';
-import { Product } from '@/types';
-import { LoadingSpinner } from '@/components/LoadingSpinner';
-import { PageHeader } from '@/components/PageHeader';
-import { EmptyState } from '@/components/EmptyState';
+import { useState, useEffect, useRef } from "react";
+import {
+  Package,
+  Plus,
+  Trash2,
+  Pencil,
+  Search,
+  Check,
+  X,
+  AlertCircle,
+} from "lucide-react";
+import {
+  searchProducts,
+  createProduct,
+  updateProduct,
+  deleteProduct,
+} from "@/lib/api";
+import { Product } from "@/types";
+import { LoadingSpinner } from "@/components/LoadingSpinner";
+import { PageHeader } from "@/components/PageHeader";
+import { EmptyState } from "@/components/EmptyState";
 
-const UNITS = ['g', 'kg', 'ml', 'l', 'pcs', 'tbsp', 'tsp', 'cup', 'oz', 'lb', 'unit'];
+const UNITS = [
+  "g",
+  "kg",
+  "ml",
+  "l",
+  "pcs",
+  "tbsp",
+  "tsp",
+  "cup",
+  "oz",
+  "lb",
+  "unit",
+];
 
 const Products = () => {
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
-  const [search, setSearch] = useState('');
+  const [error, setError] = useState("");
+  const [search, setSearch] = useState("");
   const [busy, setBusy] = useState(false);
 
   // Add form state
   const [showAdd, setShowAdd] = useState(false);
-  const [newName, setNewName] = useState('');
-  const [newUnit, setNewUnit] = useState('');
-  const [addErrors, setAddErrors] = useState<{ name?: string; unit?: string }>({});
+  const [newName, setNewName] = useState("");
+  const [newUnit, setNewUnit] = useState("");
+  const [addErrors, setAddErrors] = useState<{ name?: string; unit?: string }>(
+    {},
+  );
 
   // Edit state: keyed by product id
   const [editId, setEditId] = useState<string | null>(null);
-  const [editName, setEditName] = useState('');
-  const [editUnit, setEditUnit] = useState('');
-  const [editErrors, setEditErrors] = useState<{ name?: string; unit?: string }>({});
+  const [editName, setEditName] = useState("");
+  const [editUnit, setEditUnit] = useState("");
+  const [editErrors, setEditErrors] = useState<{
+    name?: string;
+    unit?: string;
+  }>({});
 
   // Confirm delete
   const [deleteId, setDeleteId] = useState<string | null>(null);
@@ -36,12 +67,14 @@ const Products = () => {
   useEffect(() => {
     const timer = setTimeout(async () => {
       setLoading(true);
-      setError('');
+      setError("");
       try {
         const data = await searchProducts(search || undefined);
         setProducts(data);
       } catch (err) {
-        setError(err instanceof Error ? err.message : 'Failed to load products');
+        setError(
+          err instanceof Error ? err.message : "Failed to load products",
+        );
       } finally {
         setLoading(false);
       }
@@ -58,8 +91,8 @@ const Products = () => {
 
   const validateNew = () => {
     const e: { name?: string; unit?: string } = {};
-    if (!newName.trim()) e.name = 'Name is required.';
-    if (!newUnit.trim()) e.unit = 'Unit is required.';
+    if (!newName.trim()) e.name = "Name is required.";
+    if (!newUnit.trim()) e.unit = "Unit is required.";
     setAddErrors(e);
     return Object.keys(e).length === 0;
   };
@@ -68,16 +101,18 @@ const Products = () => {
     e.preventDefault();
     if (!validateNew()) return;
     setBusy(true);
-    setError('');
+    setError("");
     try {
       const product = await createProduct(newName.trim(), newUnit.trim());
-      setProducts(prev => [...prev, product].sort((a, b) => a.name.localeCompare(b.name)));
-      setNewName('');
-      setNewUnit('');
+      setProducts((prev) =>
+        [...prev, product].sort((a, b) => a.name.localeCompare(b.name)),
+      );
+      setNewName("");
+      setNewUnit("");
       setAddErrors({});
       setShowAdd(false);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to create product');
+      setError(err instanceof Error ? err.message : "Failed to create product");
     } finally {
       setBusy(false);
     }
@@ -85,8 +120,8 @@ const Products = () => {
 
   const cancelAdd = () => {
     setShowAdd(false);
-    setNewName('');
-    setNewUnit('');
+    setNewName("");
+    setNewUnit("");
     setAddErrors({});
   };
 
@@ -102,15 +137,15 @@ const Products = () => {
 
   const cancelEdit = () => {
     setEditId(null);
-    setEditName('');
-    setEditUnit('');
+    setEditName("");
+    setEditUnit("");
     setEditErrors({});
   };
 
   const validateEdit = () => {
     const e: { name?: string; unit?: string } = {};
-    if (!editName.trim()) e.name = 'Name is required.';
-    if (!editUnit.trim()) e.unit = 'Unit is required.';
+    if (!editName.trim()) e.name = "Name is required.";
+    if (!editUnit.trim()) e.unit = "Unit is required.";
     setEditErrors(e);
     return Object.keys(e).length === 0;
   };
@@ -123,18 +158,20 @@ const Products = () => {
       return;
     }
     setBusy(true);
-    setError('');
+    setError("");
     try {
       const updated = await updateProduct(product.id, {
         name: editName.trim() !== product.name ? editName.trim() : undefined,
         unit: editUnit.trim() !== product.unit ? editUnit.trim() : undefined,
       });
-      setProducts(prev =>
-        prev.map(p => (p.id === updated.id ? updated : p)).sort((a, b) => a.name.localeCompare(b.name))
+      setProducts((prev) =>
+        prev
+          .map((p) => (p.id === updated.id ? updated : p))
+          .sort((a, b) => a.name.localeCompare(b.name)),
       );
       cancelEdit();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to update product');
+      setError(err instanceof Error ? err.message : "Failed to update product");
     } finally {
       setBusy(false);
     }
@@ -144,13 +181,13 @@ const Products = () => {
 
   const handleDelete = async (id: string) => {
     setBusy(true);
-    setError('');
+    setError("");
     try {
       await deleteProduct(id);
-      setProducts(prev => prev.filter(p => p.id !== id));
+      setProducts((prev) => prev.filter((p) => p.id !== id));
       setDeleteId(null);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to delete product');
+      setError(err instanceof Error ? err.message : "Failed to delete product");
     } finally {
       setBusy(false);
     }
@@ -158,7 +195,7 @@ const Products = () => {
 
   const inputCls = (err?: string) =>
     `w-full px-2.5 py-1.5 border rounded-lg bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring transition ${
-      err ? 'border-destructive' : 'border-input'
+      err ? "border-destructive" : "border-input"
     }`;
 
   return (
@@ -191,8 +228,13 @@ const Products = () => {
       {/* Add Product form */}
       {showAdd && (
         <div className="bg-card border border-border rounded-xl shadow-sm p-5 mb-6">
-          <h2 className="text-sm font-semibold text-foreground uppercase tracking-wide mb-4">New Product</h2>
-          <form onSubmit={handleAdd} className="grid grid-cols-1 sm:grid-cols-[1fr_180px_auto] gap-3 items-start">
+          <h2 className="text-sm font-semibold text-foreground uppercase tracking-wide mb-4">
+            New Product
+          </h2>
+          <form
+            onSubmit={handleAdd}
+            className="grid grid-cols-1 sm:grid-cols-[1fr_180px_auto] gap-3 items-start"
+          >
             <div>
               <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">
                 Name *
@@ -202,10 +244,14 @@ const Products = () => {
                 className={inputCls(addErrors.name)}
                 placeholder="e.g. Olive Oil"
                 value={newName}
-                onChange={e => setNewName(e.target.value)}
+                onChange={(e) => setNewName(e.target.value)}
                 disabled={busy}
               />
-              {addErrors.name && <p className="text-xs text-destructive mt-1">{addErrors.name}</p>}
+              {addErrors.name && (
+                <p className="text-xs text-destructive mt-1">
+                  {addErrors.name}
+                </p>
+              )}
             </div>
 
             <div>
@@ -217,15 +263,21 @@ const Products = () => {
                   className={inputCls(addErrors.unit)}
                   placeholder="e.g. ml, g, pcs"
                   value={newUnit}
-                  onChange={e => setNewUnit(e.target.value)}
+                  onChange={(e) => setNewUnit(e.target.value)}
                   list="unit-suggestions"
                   disabled={busy}
                 />
                 <datalist id="unit-suggestions">
-                  {UNITS.map(u => <option key={u} value={u} />)}
+                  {UNITS.map((u) => (
+                    <option key={u} value={u} />
+                  ))}
                 </datalist>
               </div>
-              {addErrors.unit && <p className="text-xs text-destructive mt-1">{addErrors.unit}</p>}
+              {addErrors.unit && (
+                <p className="text-xs text-destructive mt-1">
+                  {addErrors.unit}
+                </p>
+              )}
             </div>
 
             <div className="flex gap-2 pt-6 sm:pt-[26px]">
@@ -257,13 +309,16 @@ const Products = () => {
           Search Products
         </label>
         <div className="relative">
-          <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
+          <Search
+            size={15}
+            className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none"
+          />
           <input
             type="text"
             className="w-full pl-9 pr-4 py-2.5 border border-input rounded-lg bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring transition"
             placeholder="Filter by name…"
             value={search}
-            onChange={e => setSearch(e.target.value)}
+            onChange={(e) => setSearch(e.target.value)}
           />
         </div>
       </div>
@@ -277,21 +332,31 @@ const Products = () => {
         <EmptyState
           icon={<Package size={48} />}
           title="No products found"
-          description={search ? `No products match "${search}".` : 'Click Add Product to create the first one.'}
+          description={
+            search
+              ? `No products match "${search}".`
+              : "Click Add Product to create the first one."
+          }
         />
       ) : (
         <div className="bg-card border border-border rounded-xl shadow-sm overflow-hidden">
           {/* Table header */}
           <div className="hidden sm:grid grid-cols-[1fr_140px_120px] gap-3 px-4 py-2.5 bg-muted/60 border-b border-border">
-            <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Name</span>
-            <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Unit</span>
-            <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide text-right">Actions</span>
+            <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+              Name
+            </span>
+            <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+              Unit
+            </span>
+            <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide text-right">
+              Actions
+            </span>
           </div>
 
           {products.map((product, idx) => (
             <div
               key={product.id}
-              className={`px-4 py-3 ${idx < products.length - 1 ? 'border-b border-border' : ''}`}
+              className={`px-4 py-3 ${idx < products.length - 1 ? "border-b border-border" : ""}`}
             >
               {editId === product.id ? (
                 /* ── Inline edit row ── */
@@ -300,21 +365,29 @@ const Products = () => {
                     <input
                       className={inputCls(editErrors.name)}
                       value={editName}
-                      onChange={e => setEditName(e.target.value)}
+                      onChange={(e) => setEditName(e.target.value)}
                       disabled={busy}
                       autoFocus
                     />
-                    {editErrors.name && <p className="text-xs text-destructive mt-1">{editErrors.name}</p>}
+                    {editErrors.name && (
+                      <p className="text-xs text-destructive mt-1">
+                        {editErrors.name}
+                      </p>
+                    )}
                   </div>
                   <div>
                     <input
                       className={inputCls(editErrors.unit)}
                       value={editUnit}
-                      onChange={e => setEditUnit(e.target.value)}
+                      onChange={(e) => setEditUnit(e.target.value)}
                       disabled={busy}
                       list="unit-suggestions"
                     />
-                    {editErrors.unit && <p className="text-xs text-destructive mt-1">{editErrors.unit}</p>}
+                    {editErrors.unit && (
+                      <p className="text-xs text-destructive mt-1">
+                        {editErrors.unit}
+                      </p>
+                    )}
                   </div>
                   <div className="flex gap-1.5 justify-end items-center">
                     <button
@@ -323,7 +396,11 @@ const Products = () => {
                       className="inline-flex items-center gap-1 px-2.5 py-1.5 bg-primary text-primary-foreground text-xs font-semibold rounded-lg hover:bg-primary/90 transition-colors disabled:opacity-60 cursor-pointer"
                       title="Save"
                     >
-                      {busy ? <LoadingSpinner size="sm" /> : <Check size={13} />}
+                      {busy ? (
+                        <LoadingSpinner size="sm" />
+                      ) : (
+                        <Check size={13} />
+                      )}
                       Save
                     </button>
                     <button
@@ -340,7 +417,8 @@ const Products = () => {
                 /* ── Delete confirmation row ── */
                 <div className="flex items-center gap-3 flex-wrap">
                   <span className="text-sm text-foreground font-medium flex-1">
-                    Delete <strong>{product.name}</strong>? This cannot be undone.
+                    Delete <strong>{product.name}</strong>? This cannot be
+                    undone.
                   </span>
                   <div className="flex gap-2">
                     <button
@@ -348,7 +426,11 @@ const Products = () => {
                       disabled={busy}
                       className="inline-flex items-center gap-1 px-3 py-1.5 bg-destructive text-destructive-foreground text-xs font-semibold rounded-lg hover:bg-destructive/90 transition-colors disabled:opacity-60 cursor-pointer"
                     >
-                      {busy ? <LoadingSpinner size="sm" /> : <Trash2 size={13} />}
+                      {busy ? (
+                        <LoadingSpinner size="sm" />
+                      ) : (
+                        <Trash2 size={13} />
+                      )}
                       Delete
                     </button>
                     <button
@@ -364,8 +446,12 @@ const Products = () => {
               ) : (
                 /* ── Normal row ── */
                 <div className="grid grid-cols-1 sm:grid-cols-[1fr_140px_120px] gap-2 sm:gap-3 items-center">
-                  <span className="font-medium text-foreground text-sm">{product.name}</span>
-                  <span className="text-sm text-muted-foreground">{product.unit}</span>
+                  <span className="font-medium text-foreground text-sm">
+                    {product.name}
+                  </span>
+                  <span className="text-sm text-muted-foreground">
+                    {product.unit}
+                  </span>
                   <div className="flex gap-1.5 justify-start sm:justify-end">
                     <button
                       onClick={() => startEdit(product)}
@@ -376,7 +462,10 @@ const Products = () => {
                       <Pencil size={14} />
                     </button>
                     <button
-                      onClick={() => { setDeleteId(product.id); setEditId(null); }}
+                      onClick={() => {
+                        setDeleteId(product.id);
+                        setEditId(null);
+                      }}
                       disabled={busy}
                       className="p-1.5 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-lg transition-colors cursor-pointer disabled:opacity-50"
                       title="Delete"
@@ -392,8 +481,8 @@ const Products = () => {
           {/* Footer */}
           <div className="px-4 py-2.5 border-t border-border bg-muted/40">
             <span className="text-xs text-muted-foreground">
-              {products.length} product{products.length !== 1 ? 's' : ''}
-              {search ? ` matching "${search}"` : ' in catalog'}
+              {products.length} product{products.length !== 1 ? "s" : ""}
+              {search ? ` matching "${search}"` : " in catalog"}
             </span>
           </div>
         </div>

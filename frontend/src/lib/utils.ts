@@ -12,7 +12,12 @@ export function cn(...inputs: ClassValue[]) {
  */
 export function normalizeRecipe(recipe: Recipe): Recipe {
   if (recipe.nutrition) return recipe;
-  if (recipe.calories != null || recipe.protein != null || recipe.carbs != null || recipe.fat != null) {
+  if (
+    recipe.calories != null ||
+    recipe.protein != null ||
+    recipe.carbs != null ||
+    recipe.fat != null
+  ) {
     return {
       ...recipe,
       nutrition: {
