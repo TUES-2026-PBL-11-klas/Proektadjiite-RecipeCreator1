@@ -6,7 +6,7 @@ export interface Product {
 
 export interface PantryItem {
   product_id: string;
-  name?: string;
+  product_name?: string;
   unit?: string;
   quantity: number;
 }
@@ -15,7 +15,7 @@ export type DifficultyLevel = 'Easy' | 'Medium' | 'Hard';
 
 export interface RecipeIngredient {
   product_id: string;
-  name: string;
+  product_name: string;
   unit: string;
   quantity: number;
 }
@@ -38,6 +38,11 @@ export interface Recipe {
   image_url?: string;
   ingredients?: RecipeIngredient[];
   nutrition?: Nutrition;
+  // flat nutrition fields returned directly by the backend
+  calories?: number | null;
+  protein?: number | null;
+  carbs?: number | null;
+  fat?: number | null;
 }
 
 export interface GenerateResponse {

@@ -15,10 +15,17 @@ app.config.from_object(Config)
 # Disable strict slash enforcement that causes 308 redirects
 app.url_map.strict_slashes = False
 
-# Configure CORS with explicit settings
+# Configure CORS with explicit settings (include common dev ports)
 CORS(
     app,
-    origins=["http://localhost:8080", "http://127.0.0.1:8080", "http://localhost:3000"],
+    origins=[
+        "http://localhost:8080",
+        "http://127.0.0.1:8080",
+        "http://localhost:3000",
+        "http://127.0.0.1:3000",
+        "http://localhost:5173",
+        "http://127.0.0.1:5173",
+    ],
     methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allow_headers=["Content-Type", "Authorization"],
     supports_credentials=True,

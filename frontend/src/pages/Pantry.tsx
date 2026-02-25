@@ -8,6 +8,7 @@ import { EmptyState } from '@/components/EmptyState';
 
 const Pantry = () => {
   const [items, setItems] = useState<PantryItem[]>([]);
+  const [qtyDraft, setQtyDraft] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -25,6 +26,9 @@ const Pantry = () => {
         setError('');
         const data = await getPantry();
         setItems(data);
+        const drafts: Record<string, string> = {};
+        data.forEach(item => { drafts[item.product_id] = String(item.quantity); });
+        setQtyDraft(drafts);
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Failed to load pantry');
       } finally {
@@ -70,12 +74,14 @@ const Pantry = () => {
       setError(`${product.name} is already in your pantry`);
       return;
     }
+
     
     setSaving(true);
     setError('');
     try {
       const result = await addToPantry(product.id, 1);
       setItems(prev => [...prev, result]);
+      setQtyDraft(prev => ({ ...prev, [result.product_id]: String(result.quantity) }));
       setSearch('');
       setShowSuggestions(false);
     } catch (err) {
@@ -85,9 +91,21 @@ const Pantry = () => {
     }
   };
 
-  // Update quantity
-  const updateQuantity = (productId: string, qty: number) => {
-    setItems(prev => prev.map(i => i.product_id === productId ? { ...i, quantity: qty } : i));
+  // Update quantity draft (while typing)
+  const handleQtyChange = (productId: string, raw: string) => {
+    setQtyDraft(prev => ({ ...prev, [productId]: raw }));
+  };
+
+  // Commit draft to item on blur
+  const commitQty = (productId: string) => {
+    const parsed = parseFloat(qtyDraft[productId]);
+    if (!isNaN(parsed) && parsed > 0) {
+      setItems(prev => prev.map(i => i.product_id === productId ? { ...i, quantity: parsed } : i));
+    } else {
+      // Revert draft to last valid value
+      const current = items.find(i => i.product_id === productId);
+      if (current) setQtyDraft(prev => ({ ...prev, [productId]: String(current.quantity) }));
+    }
   };
 
   // Remove ingredient from pantry
@@ -223,17 +241,18 @@ const Pantry = () => {
               }`}
             >
               {/* Mobile label */}
-              <span className="font-medium text-foreground text-sm">{item.name || item.product_id}</span>
+              <span className="font-medium text-foreground text-sm">{item.product_name || item.product_id}</span>
 
               <div className="flex items-center gap-2 w-full sm:w-auto">
                 {/* Mobile: qty + unit inline */}
                 <input
-                  type="number"
-                  min={0.1}
-                  step={0.1}
-                  value={item.quantity}
-                  onChange={e => updateQuantity(item.product_id, parseFloat(e.target.value) || 0)}
+                  type="text"
+                  inputMode="decimal"
+                  value={qtyDraft[item.product_id] ?? ''}
+                  onChange={e => handleQtyChange(item.product_id, e.target.value)}
+                  onBlur={() => commitQty(item.product_id)}
                   className="w-24 sm:w-full px-2.5 py-1.5 border border-input rounded-lg bg-background text-foreground text-sm text-right focus:outline-none focus:ring-2 focus:ring-ring transition"
+                  placeholder="qty"
                   disabled={saving}
                 />
                 <span className="text-sm text-muted-foreground sm:hidden">{item.unit}</span>

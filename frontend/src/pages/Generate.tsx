@@ -1,58 +1,49 @@
 import { useState, useEffect } from 'react';
-import { Sparkles, ShoppingBasket, BookmarkPlus, RefreshCw, Clock, ChefHat, AlertCircle } from 'lucide-react';
-import { getPantry, generateRecipeFromPantry, createRecipe } from '@/lib/api';
+import { useNavigate } from 'react-router-dom';
+import {
+  Sparkles, ShoppingBasket, BookOpen, RefreshCw, Clock, ChefHat,
+  AlertCircle, Zap, Flame, Beef, Wheat, Droplets, UtensilsCrossed,
+} from 'lucide-react';
+import { getPantry, generateRecipeFromPantry, generateRecipeAIEnhanced } from '@/lib/api';
+import { normalizeRecipe } from '@/lib/utils';
 import { PantryItem, Recipe } from '@/types';
 import { LoadingSpinner } from '@/components/LoadingSpinner';
-import { IngredientList } from '@/components/IngredientList';
-import { NutritionPanel } from '@/components/NutritionPanel';
 import { PageHeader } from '@/components/PageHeader';
 import { EmptyState } from '@/components/EmptyState';
 
-const diffClass: Record<string, string> = {
+type GenerateMode = 'pantry-only' | 'ai-enhanced';
+
+const diffBadge: Record<string, string> = {
   Easy: 'badge-easy', Medium: 'badge-medium', Hard: 'badge-hard',
 };
 
 const Generate = () => {
+  const navigate = useNavigate();
   const [pantry, setPantry] = useState<PantryItem[]>([]);
   const [loadingPantry, setLoadingPantry] = useState(true);
   const [generating, setGenerating] = useState(false);
-  const [saving, setSaving] = useState(false);
   const [result, setResult] = useState<Recipe | null>(null);
-  const [saved, setSaved] = useState(false);
   const [error, setError] = useState('');
+  const [mode, setMode] = useState<GenerateMode>('pantry-only');
 
-  // Load pantry on mount
   useEffect(() => {
-    const loadPantry = async () => {
-      try {
-        setError('');
-        const data = await getPantry();
-        setPantry(data);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'Failed to load pantry');
-      } finally {
-        setLoadingPantry(false);
-      }
-    };
-    loadPantry();
+    getPantry()
+      .then(data => setPantry(data))
+      .catch(err => setError(err instanceof Error ? err.message : 'Failed to load pantry'))
+      .finally(() => setLoadingPantry(false));
   }, []);
 
-  // Generate recipe from selected pantry items
   const handleGenerate = async () => {
-    if (pantry.length === 0) {
-      setError('Please add items to your pantry first');
-      return;
-    }
-
+    if (pantry.length === 0) { setError('Add items to your pantry first.'); return; }
     setGenerating(true);
     setResult(null);
-    setSaved(false);
     setError('');
-    
     try {
-      const productIds = pantry.map(item => item.product_id);
-      const recipe = await generateRecipeFromPantry(productIds);
-      setResult(recipe);
+      const ids = pantry.map(i => i.product_id);
+      const raw = mode === 'ai-enhanced'
+        ? await generateRecipeAIEnhanced(ids)
+        : await generateRecipeFromPantry(ids);
+      setResult(normalizeRecipe(raw));
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to generate recipe');
     } finally {
@@ -60,43 +51,20 @@ const Generate = () => {
     }
   };
 
-  // Save generated recipe
-  const handleSaveRecipe = async () => {
-    if (!result) return;
-
-    setSaving(true);
-    setError('');
-    try {
-      await createRecipe({
-        title: result.title,
-        description: result.description,
-        instructions: result.instructions,
-        prep_time_minutes: result.prep_time_minutes,
-        difficulty_level: result.difficulty_level,
-        image_url: result.image_url,
-        ingredients: result.ingredients?.map(ing => ({
-          product_id: ing.product_id,
-          quantity: ing.quantity,
-        })),
-      });
-      setSaved(true);
-      setTimeout(() => setSaved(false), 3000);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to save recipe');
-    } finally {
-      setSaving(false);
-    }
-  };
+  const instructions: string[] = result
+    ? Array.isArray(result.instructions)
+      ? result.instructions
+      : result.instructions.split('\n').filter(Boolean)
+    : [];
 
   return (
     <div className="page-wrapper">
       <PageHeader
         icon={<Sparkles size={24} />}
         title="AI Chef"
-        subtitle="Generate a recipe from your pantry"
+        subtitle="Generate a recipe from your pantry — saved automatically"
       />
 
-      {/* Error message */}
       {error && (
         <div className="mb-4 p-3 bg-destructive/10 border border-destructive/20 rounded-lg flex items-start gap-2">
           <AlertCircle size={16} className="text-destructive shrink-0 mt-0.5" />
@@ -104,38 +72,60 @@ const Generate = () => {
         </div>
       )}
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Left: Pantry + generate */}
+      <div className="grid grid-cols-1 lg:grid-cols-[360px_1fr] gap-6 items-start">
+
+        {/* ── Left panel ─────────────────────────────────────────── */}
         <div className="space-y-4">
-          {/* Pantry Summary */}
-          <div className="bg-card border border-border rounded-xl shadow-sm p-5">
-            <div className="flex items-center gap-2 mb-4">
-              <ShoppingBasket size={17} className="text-primary" />
-              <h2 className="text-base font-semibold text-foreground">Your Pantry</h2>
+
+          {/* Mode toggle */}
+          <div className="bg-card border border-border rounded-xl shadow-sm p-4">
+            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3">Generation Mode</p>
+            <div className="grid grid-cols-2 gap-2">
+              {([
+                { id: 'pantry-only' as GenerateMode, icon: ShoppingBasket, label: 'Pantry Only',  desc: 'Uses only what you have' },
+                { id: 'ai-enhanced'  as GenerateMode, icon: Zap,           label: 'AI Enhanced',   desc: 'May suggest extra ingredients' },
+              ]).map(({ id, icon: Icon, label, desc }) => (
+                <button
+                  key={id}
+                  onClick={() => setMode(id)}
+                  className={`flex flex-col gap-1 px-3 py-3 rounded-lg border text-left transition-colors cursor-pointer ${
+                    mode === id
+                      ? 'border-primary bg-secondary text-primary'
+                      : 'border-border bg-muted/50 text-muted-foreground hover:bg-secondary/50'
+                  }`}
+                >
+                  <span className="flex items-center gap-1.5 text-sm font-semibold">
+                    <Icon size={13} /> {label}
+                  </span>
+                  <span className="text-xs leading-tight opacity-70">{desc}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Pantry summary */}
+          <div className="bg-card border border-border rounded-xl shadow-sm p-4">
+            <div className="flex items-center gap-2 mb-3">
+              <ShoppingBasket size={16} className="text-primary" />
+              <h2 className="text-sm font-semibold text-foreground">Your Pantry</h2>
               {!loadingPantry && (
-                <span className="ml-auto text-xs text-muted-foreground">{pantry.length} items</span>
+                <span className="ml-auto text-xs text-muted-foreground">
+                  {pantry.length} item{pantry.length !== 1 ? 's' : ''}
+                </span>
               )}
             </div>
-
             {loadingPantry ? (
-              <div className="flex justify-center py-6">
-                <LoadingSpinner size="sm" label="Loading pantry…" />
+              <div className="flex justify-center py-4">
+                <LoadingSpinner size="sm" label="Loading…" />
               </div>
             ) : pantry.length === 0 ? (
-              <EmptyState
-                icon={<ShoppingBasket size={32} />}
-                title="Pantry is empty"
-                description="Add some ingredients to your pantry first."
-              />
+              <p className="text-sm text-muted-foreground text-center py-3">Your pantry is empty.</p>
             ) : (
-              <div className="flex flex-wrap gap-2">
+              <div className="flex flex-wrap gap-1.5">
                 {pantry.map(item => (
-                  <span
-                    key={item.product_id}
-                    className="inline-flex items-center gap-1 px-2.5 py-1 bg-secondary text-secondary-foreground text-xs font-medium rounded-full"
-                  >
-                    {item.name}
-                    <span className="text-muted-foreground">· {item.quantity} {item.unit}</span>
+                  <span key={item.product_id} className="inline-flex items-center gap-1 px-2.5 py-1 bg-secondary text-secondary-foreground text-xs font-medium rounded-full">
+                    {item.product_name}
+                    <span className="text-muted-foreground opacity-70">· {item.quantity} {item.unit}</span>
                   </span>
                 ))}
               </div>
@@ -145,113 +135,179 @@ const Generate = () => {
           {/* Generate button */}
           <button
             onClick={handleGenerate}
-            disabled={generating || loadingPantry || pantry.length === 0 || saving}
-            className="w-full flex items-center justify-center gap-2 py-3 px-6 bg-primary text-primary-foreground font-semibold rounded-xl text-base hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
+            disabled={generating || loadingPantry || pantry.length === 0}
+            className="w-full flex items-center justify-center gap-2 py-3.5 px-6 bg-primary text-primary-foreground font-semibold rounded-xl text-sm hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
           >
-            {generating ? (
-              <>
-                <LoadingSpinner size="sm" />
-                Generating recipe…
-              </>
-            ) : (
-              <>
-                <Sparkles size={18} />
-                Generate Recipe
-              </>
-            )}
+            {generating
+              ? <><LoadingSpinner size="sm" /> Generating…</>
+              : <><Sparkles size={16} /> Generate Recipe</>}
           </button>
 
           {generating && (
-            <p className="text-sm text-center text-muted-foreground animate-pulse">
-              The AI Chef is analyzing your pantry and crafting a recipe…
+            <p className="text-xs text-center text-muted-foreground animate-pulse">
+              {mode === 'ai-enhanced'
+                ? 'AI is crafting an enhanced recipe — this may take a moment…'
+                : 'Analyzing your pantry and crafting a recipe…'}
             </p>
           )}
         </div>
 
-        {/* Right: Result */}
+        {/* ── Right panel ─────────────────────────────────────────── */}
         <div>
           {!result && !generating && (
-            <div className="bg-card border border-dashed border-border rounded-xl p-8">
+            <div className="bg-card border border-dashed border-border rounded-xl p-10">
               <EmptyState
-                icon={<ChefHat size={40} />}
-                title="No recipe generated yet"
-                description="Click Generate Recipe to let the AI Chef create something from your pantry."
+                icon={<ChefHat size={44} />}
+                title="No recipe yet"
+                description="Choose a mode and click Generate Recipe."
               />
             </div>
           )}
 
           {generating && (
-            <div className="bg-card border border-border rounded-xl p-8 flex items-center justify-center min-h-48">
-              <LoadingSpinner size="lg" label="Crafting your recipe…" />
+            <div className="bg-card border border-border rounded-xl p-10 flex flex-col items-center justify-center gap-3 min-h-64">
+              <LoadingSpinner size="lg" />
+              <p className="text-sm text-muted-foreground animate-pulse">Crafting your recipe…</p>
             </div>
           )}
 
           {result && (
             <div className="space-y-4">
-              {/* Recipe header card */}
-              <div className="bg-card border border-border rounded-xl shadow-sm p-5">
-                <div className="flex items-start justify-between gap-3 mb-3">
-                  <div>
-                    <span className="text-xs font-semibold text-primary uppercase tracking-wide">AI Generated</span>
-                    <h2 className="text-xl font-bold text-foreground font-serif mt-0.5">{result.title}</h2>
-                    <p className="text-sm text-muted-foreground mt-1 leading-relaxed">{result.description}</p>
+
+              {/* ── Hero card ── */}
+              <div className="bg-card border border-border rounded-xl shadow-sm overflow-hidden">
+                <div className="h-1.5 bg-gradient-to-r from-primary via-primary/60 to-primary/20" />
+                <div className="p-6">
+
+                  <div className="flex items-center gap-2 mb-3">
+                    <span className="inline-flex items-center gap-1 text-xs font-semibold text-primary uppercase tracking-wide">
+                      <Sparkles size={10} />
+                      {mode === 'ai-enhanced' ? 'AI Enhanced' : 'AI Generated'}
+                    </span>
+                    <span className="ml-auto text-xs text-primary bg-primary/8 border border-primary/20 px-2.5 py-0.5 rounded-full font-medium">
+                      ✓ Saved to collection
+                    </span>
+                  </div>
+
+                  <h2 className="text-2xl font-bold text-foreground font-serif leading-tight mb-2">
+                    {result.title}
+                  </h2>
+
+                  {result.description && (
+                    <p className="text-sm text-muted-foreground leading-relaxed mb-4">
+                      {result.description}
+                    </p>
+                  )}
+
+                  {/* Meta row */}
+                  <div className="flex flex-wrap items-center gap-2 mb-5">
+                    <span className="inline-flex items-center gap-1.5 text-xs font-medium text-muted-foreground bg-muted px-3 py-1.5 rounded-full">
+                      <Clock size={12} /> {result.prep_time_minutes} min
+                    </span>
+                    <span className={diffBadge[result.difficulty_level] ?? 'badge-easy'}>
+                      {result.difficulty_level}
+                    </span>
+                    {result.ingredients && (
+                      <span className="inline-flex items-center gap-1.5 text-xs font-medium text-muted-foreground bg-muted px-3 py-1.5 rounded-full">
+                        <UtensilsCrossed size={12} /> {result.ingredients.length} ingredients
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Nutrition bar */}
+                  {result.nutrition && (
+                    <div className="grid grid-cols-4 gap-2 p-3 bg-muted/50 rounded-xl border border-border mb-5">
+                      <div className="flex flex-col items-center gap-0.5">
+                        <Flame size={14} className="text-orange-500" />
+                        <span className="text-base font-bold text-foreground leading-none mt-0.5">
+                          {result.nutrition.calories_kcal}
+                        </span>
+                        <span className="text-[10px] text-muted-foreground">kcal</span>
+                      </div>
+                      <div className="flex flex-col items-center gap-0.5">
+                        <Beef size={14} className="text-blue-500" />
+                        <span className="text-base font-bold text-foreground leading-none mt-0.5">
+                          {result.nutrition.protein_g}g
+                        </span>
+                        <span className="text-[10px] text-muted-foreground">protein</span>
+                      </div>
+                      <div className="flex flex-col items-center gap-0.5">
+                        <Wheat size={14} className="text-amber-500" />
+                        <span className="text-base font-bold text-foreground leading-none mt-0.5">
+                          {result.nutrition.carbs_g}g
+                        </span>
+                        <span className="text-[10px] text-muted-foreground">carbs</span>
+                      </div>
+                      <div className="flex flex-col items-center gap-0.5">
+                        <Droplets size={14} className="text-rose-500" />
+                        <span className="text-base font-bold text-foreground leading-none mt-0.5">
+                          {result.nutrition.fat_g}g
+                        </span>
+                        <span className="text-[10px] text-muted-foreground">fat</span>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Actions */}
+                  <div className="flex gap-2">
+                    <button
+                      onClick={handleGenerate}
+                      disabled={generating}
+                      className="inline-flex items-center gap-1.5 px-4 py-2 border border-border rounded-lg text-sm font-medium text-muted-foreground hover:bg-muted transition-colors cursor-pointer disabled:opacity-50"
+                    >
+                      <RefreshCw size={13} /> Regenerate
+                    </button>
+                    <button
+                      onClick={() => navigate(`/recipes/${result.id}`)}
+                      className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold bg-primary text-primary-foreground hover:bg-primary/90 transition-colors cursor-pointer"
+                    >
+                      <BookOpen size={13} /> View Full Recipe
+                    </button>
                   </div>
                 </div>
-                <div className="flex items-center gap-2 flex-wrap mb-4">
-                  <span className="flex items-center gap-1 text-xs text-muted-foreground">
-                    <Clock size={13} />{result.prep_time_minutes} min
-                  </span>
-                  <span className={diffClass[result.difficulty_level] ?? 'badge-easy'}>
-                    {result.difficulty_level}
-                  </span>
-                </div>
-                <div className="flex gap-2">
-                  <button
-                    onClick={handleGenerate}
-                    disabled={generating}
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 border border-border rounded-lg text-sm font-medium text-muted-foreground hover:bg-muted transition-colors cursor-pointer disabled:opacity-50"
-                  >
-                    <RefreshCw size={14} /> Regenerate
-                  </button>
-                  <button
-                    onClick={handleSaveRecipe}
-                    disabled={saved || saving}
-                    className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-semibold transition-colors cursor-pointer disabled:opacity-60 ${
-                      saved ? 'bg-primary/10 text-primary border border-primary/20' : 'bg-primary text-primary-foreground hover:bg-primary/90'
-                    }`}
-                  >
-                    <BookmarkPlus size={14} />
-                    {saving ? 'Saving…' : saved ? 'Saved!' : 'Save to Collection'}
-                  </button>
-                </div>
               </div>
 
-              {/* Ingredients */}
-              {result.ingredients && result.ingredients.length > 0 && (
+              {/* ── Ingredients + Instructions ── */}
+              <div className="grid grid-cols-1 md:grid-cols-[1fr_1.7fr] gap-4">
+
+                {/* Ingredients */}
+                {result.ingredients && result.ingredients.length > 0 && (
+                  <div className="bg-card border border-border rounded-xl shadow-sm p-5">
+                    <h3 className="text-sm font-semibold text-foreground mb-3 flex items-center gap-2">
+                      <UtensilsCrossed size={14} className="text-primary" /> Ingredients
+                    </h3>
+                    <ul className="space-y-0">
+                      {result.ingredients.map((ing) => (
+                        <li key={ing.product_id} className="flex items-center gap-2.5 py-2 border-b border-border last:border-0">
+                          <span className="w-1.5 h-1.5 rounded-full bg-primary shrink-0" />
+                          <span className="flex-1 text-sm font-medium text-foreground">{ing.product_name}</span>
+                          <span className="text-xs text-muted-foreground tabular-nums whitespace-nowrap">
+                            {ing.quantity} {ing.unit}
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
+                {/* Instructions */}
                 <div className="bg-card border border-border rounded-xl shadow-sm p-5">
-                  <h3 className="text-sm font-semibold text-foreground mb-3">Ingredients</h3>
-                  <IngredientList items={result.ingredients} missing={[]} />
+                  <h3 className="text-sm font-semibold text-foreground mb-4 flex items-center gap-2">
+                    <ChefHat size={14} className="text-primary" /> Instructions
+                  </h3>
+                  <ol className="space-y-4">
+                    {instructions.map((step, i) => (
+                      <li key={i} className="flex gap-3">
+                        <span className="flex-shrink-0 w-7 h-7 rounded-full bg-primary/10 text-primary text-xs font-bold flex items-center justify-center mt-0.5">
+                          {i + 1}
+                        </span>
+                        <span className="text-sm text-foreground leading-relaxed pt-1">{step}</span>
+                      </li>
+                    ))}
+                  </ol>
                 </div>
-              )}
-
-              {/* Nutrition */}
-              <NutritionPanel nutrition={result.nutrition} />
-
-              {/* Instructions */}
-              <div className="bg-card border border-border rounded-xl shadow-sm p-5">
-                <h3 className="text-sm font-semibold text-foreground mb-3">Instructions</h3>
-                <ol className="space-y-3">
-                  {(Array.isArray(result.instructions)
-                    ? result.instructions
-                    : [result.instructions]
-                  ).map((step, i) => (
-                    <li key={i} className="flex gap-3 text-sm">
-                      <span className="flex-shrink-0 w-6 h-6 rounded-full bg-primary/10 text-primary text-xs font-bold flex items-center justify-center mt-0.5">{i + 1}</span>
-                      <span className="text-foreground leading-relaxed">{step}</span>
-                    </li>
-                  ))}
-                </ol>
               </div>
+
             </div>
           )}
         </div>
@@ -261,4 +317,3 @@ const Generate = () => {
 };
 
 export default Generate;
-

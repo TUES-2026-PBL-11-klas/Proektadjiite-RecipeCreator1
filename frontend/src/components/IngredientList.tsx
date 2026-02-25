@@ -21,7 +21,7 @@ export function IngredientList({ items, missing = [], showQuantity = true }: Ing
             className={`flex items-center gap-2.5 text-sm py-1 border-b border-border last:border-0 ${isMissing ? 'text-destructive' : 'text-foreground'}`}
           >
             <span className={`w-2 h-2 rounded-full shrink-0 ${isMissing ? 'bg-destructive' : 'bg-primary'}`} />
-            <span className="flex-1 font-medium">{item.name || item.product_id}</span>
+            <span className="flex-1 font-medium">{'product_name' in item ? item.product_name : item.product_id}</span>
             {showQuantity && (
               <span className="text-muted-foreground text-xs">
                 {item.quantity} {item.unit}

@@ -1,10 +1,11 @@
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { ChefHat, LayoutDashboard, ShoppingBasket, BookOpen, Sparkles, LogIn, LogOut } from 'lucide-react';
+import { ChefHat, LayoutDashboard, ShoppingBasket, BookOpen, Sparkles, Package, LogIn, LogOut } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 
 const navLinks = [
   { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { to: '/pantry', label: 'Pantry', icon: ShoppingBasket },
+  { to: '/products', label: 'Products', icon: Package },
   { to: '/recipes', label: 'Recipes', icon: BookOpen },
   { to: '/generate', label: 'AI Chef', icon: Sparkles },
 ];

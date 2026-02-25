@@ -10,8 +10,8 @@ import Index from "./pages/Index";
 import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
 import Pantry from "./pages/Pantry";
+import Products from "./pages/Products";
 import Recipes from "./pages/Recipes";
-import RecipeCreate from "./pages/RecipeCreate";
 import RecipeDetail from "./pages/RecipeDetail";
 import Generate from "./pages/Generate";
 import NotFound from "./pages/NotFound";
@@ -33,8 +33,8 @@ const App = () => (
                 <Route path="/login" element={<Login />} />
                 <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
                 <Route path="/pantry" element={<ProtectedRoute><Pantry /></ProtectedRoute>} />
+                <Route path="/products" element={<ProtectedRoute><Products /></ProtectedRoute>} />
                 <Route path="/recipes" element={<ProtectedRoute><Recipes /></ProtectedRoute>} />
-                <Route path="/recipes/create" element={<ProtectedRoute><RecipeCreate /></ProtectedRoute>} />
                 <Route path="/recipes/:id" element={<ProtectedRoute><RecipeDetail /></ProtectedRoute>} />
                 <Route path="/generate" element={<ProtectedRoute><Generate /></ProtectedRoute>} />
                 <Route path="*" element={<NotFound />} />

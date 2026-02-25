@@ -1,8 +1,14 @@
-import { PantryItem, Recipe, GenerateResponse, RecipeFiltersState, Product } from '@/types';
+import {
+  PantryItem,
+  Recipe,
+  GenerateResponse,
+  RecipeFiltersState,
+  Product,
+} from "@/types";
 
-const API_BASE = import.meta.env.VITE_API_BASE_URL || '';
-const AUTH_TOKEN_KEY = 'rc_auth_token';
-const AUTH_USER_KEY = 'rc_auth_user';
+const API_BASE = import.meta.env.VITE_API_BASE_URL || "";
+const AUTH_TOKEN_KEY = "rc_auth_token";
+const AUTH_USER_KEY = "rc_auth_user";
 
 // ─── Auth Types ──────────────────────────────────────────────────────────────
 
@@ -20,32 +26,38 @@ export interface AuthResponse {
 // ─── Helper ──────────────────────────────────────────────────────────────────
 
 async function apiFetch<T>(path: string, options?: RequestInit): Promise<T> {
-  if (!API_BASE) throw new Error('API base URL not configured');
-  
+  if (!API_BASE) throw new Error("API base URL not configured");
+
   const token = localStorage.getItem(AUTH_TOKEN_KEY);
   const headers: Record<string, string> = {
-    'Content-Type': 'application/json',
+    "Content-Type": "application/json",
   };
-  
+
   if (token) {
-    headers['Authorization'] = `Bearer ${token}`;
+    headers["Authorization"] = `Bearer ${token}`;
   }
 
-  const res = await fetch(`${API_BASE}${path}`, {
+  // Normalize base + path to avoid double slashes (API_BASE may end with a slash)
+  const base = API_BASE.replace(/\/+$|^\s+|\s+$/g, "").replace(/\s+/g, "");
+  const normalizedBase = base.replace(/\/$/, "");
+  const normalizedPath = path.startsWith("/") ? path : `/${path}`;
+  const url = `${normalizedBase}${normalizedPath}`;
+
+  const res = await fetch(url, {
     ...options,
     headers: {
       ...headers,
       ...(options?.headers || {}),
     },
   });
-  
+
   if (res.status === 401) {
     // Token invalid/expired - clear auth
     localStorage.removeItem(AUTH_TOKEN_KEY);
     localStorage.removeItem(AUTH_USER_KEY);
-    throw new Error('Session expired. Please log in again.');
+    throw new Error("Session expired. Please log in again.");
   }
-  
+
   if (!res.ok) {
     let errorMsg = `API error: ${res.status}`;
     try {
@@ -56,7 +68,7 @@ async function apiFetch<T>(path: string, options?: RequestInit): Promise<T> {
     }
     throw new Error(errorMsg);
   }
-  
+
   return res.json();
 }
 
@@ -66,27 +78,34 @@ async function apiFetch<T>(path: string, options?: RequestInit): Promise<T> {
 
 // ─── Authentication ──────────────────────────────────────────────────────────
 
-export async function registerUser(email: string, username: string, password: string): Promise<AuthResponse> {
-  const response = await apiFetch<AuthResponse>('/api/auth/register', {
-    method: 'POST',
+export async function registerUser(
+  email: string,
+  username: string,
+  password: string,
+): Promise<AuthResponse> {
+  const response = await apiFetch<AuthResponse>("/api/auth/register", {
+    method: "POST",
     body: JSON.stringify({ email, username, password }),
   });
-  
+
   localStorage.setItem(AUTH_TOKEN_KEY, response.token);
   localStorage.setItem(AUTH_USER_KEY, JSON.stringify(response.user));
-  
+
   return response;
 }
 
-export async function loginUser(email: string, password: string): Promise<AuthResponse> {
-  const response = await apiFetch<AuthResponse>('/api/auth/login', {
-    method: 'POST',
+export async function loginUser(
+  email: string,
+  password: string,
+): Promise<AuthResponse> {
+  const response = await apiFetch<AuthResponse>("/api/auth/login", {
+    method: "POST",
     body: JSON.stringify({ email, password }),
   });
-  
+
   localStorage.setItem(AUTH_TOKEN_KEY, response.token);
   localStorage.setItem(AUTH_USER_KEY, JSON.stringify(response.user));
-  
+
   return response;
 }
 
@@ -110,51 +129,30 @@ export function isAuthenticated(): boolean {
 
 // ─── Recipes ─────────────────────────────────────────────────────────────────
 
-export async function getRecipes(filters?: Partial<RecipeFiltersState>): Promise<Recipe[]> {
+export async function getRecipes(
+  filters?: Partial<RecipeFiltersState>,
+): Promise<Recipe[]> {
   const params = new URLSearchParams();
-  if (filters?.search) params.set('search', filters.search);
-  if (filters?.maxTime) params.set('maxTime', String(filters.maxTime));
-  if (filters?.difficulty) params.set('difficulty', filters.difficulty);
-  
+  if (filters?.search) params.set("search", filters.search);
+  if (filters?.maxTime) params.set("max_prep_time", String(filters.maxTime));
+
   const query = params.toString();
-  return apiFetch<Recipe[]>(`/api/recipes${query ? '?' + query : ''}`);
+  return apiFetch<Recipe[]>(`/api/recipes${query ? "?" + query : ""}`);
 }
 
 export async function getRecipeById(id: string): Promise<Recipe> {
   return apiFetch<Recipe>(`/api/recipes/${id}`);
 }
 
-export async function createRecipe(data: {
-  title: string;
-  description?: string;
-  instructions: string[] | string;
-  prep_time_minutes: number;
-  difficulty_level: string;
-  image_url?: string;
-  ingredients?: Array<{ product_id: string; quantity: number }>;
-}): Promise<Recipe> {
-  return apiFetch<Recipe>('/api/recipes', {
-    method: 'POST',
-    body: JSON.stringify(data),
-  });
-}
-
-export async function updateRecipe(id: string, data: Partial<Recipe>): Promise<Recipe> {
-  return apiFetch<Recipe>(`/api/recipes/${id}`, {
-    method: 'PUT',
-    body: JSON.stringify(data),
-  });
-}
-
 export async function deleteRecipe(id: string): Promise<void> {
   await apiFetch<void>(`/api/recipes/${id}`, {
-    method: 'DELETE',
+    method: "DELETE",
   });
 }
 
 export async function renameRecipe(id: string, title: string): Promise<Recipe> {
   return apiFetch<Recipe>(`/api/recipes/${id}`, {
-    method: 'PUT',
+    method: "PUT",
     body: JSON.stringify({ title }),
   });
 }
@@ -162,26 +160,32 @@ export async function renameRecipe(id: string, title: string): Promise<Recipe> {
 // ─── Pantry ──────────────────────────────────────────────────────────────────
 
 export async function getPantry(): Promise<PantryItem[]> {
-  return apiFetch<PantryItem[]>('/api/pantry');
+  return apiFetch<PantryItem[]>("/api/pantry");
 }
 
-export async function addToPantry(productId: string, quantity: number): Promise<PantryItem> {
-  return apiFetch<PantryItem>('/api/pantry', {
-    method: 'POST',
+export async function addToPantry(
+  productId: string,
+  quantity: number,
+): Promise<PantryItem> {
+  return apiFetch<PantryItem>("/api/pantry", {
+    method: "POST",
     body: JSON.stringify({ product_id: productId, quantity }),
   });
 }
 
-export async function updatePantryItem(productId: string, quantity: number): Promise<PantryItem> {
+export async function updatePantryItem(
+  productId: string,
+  quantity: number,
+): Promise<PantryItem> {
   return apiFetch<PantryItem>(`/api/pantry/${productId}`, {
-    method: 'PUT',
+    method: "PUT",
     body: JSON.stringify({ quantity }),
   });
 }
 
 export async function removeFromPantry(productId: string): Promise<void> {
   await apiFetch<void>(`/api/pantry/${productId}`, {
-    method: 'DELETE',
+    method: "DELETE",
   });
 }
 
@@ -189,31 +193,39 @@ export async function removeFromPantry(productId: string): Promise<void> {
 
 export async function searchProducts(query?: string): Promise<Product[]> {
   const params = new URLSearchParams();
-  if (query) params.set('search', query);
-  
+  if (query) params.set("search", query);
+
   const queryStr = params.toString();
-  return apiFetch<Product[]>(`/api/products${queryStr ? '?' + queryStr : ''}`);
+  return apiFetch<Product[]>(`/api/products${queryStr ? "?" + queryStr : ""}`);
 }
 
 export async function getProductById(id: string): Promise<Product> {
   return apiFetch<Product>(`/api/products/${id}`);
 }
 
-export async function createProduct(name: string, unit: string): Promise<Product> {
-  return apiFetch<Product>('/api/products', {
-    method: 'POST',
+export async function createProduct(
+  name: string,
+  unit: string,
+): Promise<Product> {
+  return apiFetch<Product>("/api/products", {
+    method: "POST",
     body: JSON.stringify({ name, unit }),
   });
 }
 
-export async function updateProduct(id: string, name?: string, unit?: string): Promise<Product> {
-  const data = {};
-  if (name) (data as any).name = name;
-  if (unit) (data as any).unit = unit;
-  
+export async function updateProduct(
+  id: string,
+  data: { name?: string; unit?: string },
+): Promise<Product> {
   return apiFetch<Product>(`/api/products/${id}`, {
-    method: 'PUT',
+    method: "PUT",
     body: JSON.stringify(data),
+  });
+}
+
+export async function deleteProduct(id: string): Promise<void> {
+  await apiFetch<void>(`/api/products/${id}`, {
+    method: "DELETE",
   });
 }
 
@@ -221,10 +233,10 @@ export async function updateProduct(id: string, name?: string, unit?: string): P
 
 export async function generateRecipeFromPantry(
   productIds: string[],
-  preferences?: string
+  preferences?: string,
 ): Promise<Recipe> {
-  return apiFetch<Recipe>('/api/recipes/generate/pantry-only', {
-    method: 'POST',
+  return apiFetch<Recipe>("/api/recipes/generate/pantry-only", {
+    method: "POST",
     body: JSON.stringify({
       product_ids: productIds,
       preferences,
@@ -234,10 +246,10 @@ export async function generateRecipeFromPantry(
 
 export async function generateRecipeAIEnhanced(
   productIds: string[],
-  preferences?: string
+  preferences?: string,
 ): Promise<Recipe> {
-  return apiFetch<Recipe>('/api/recipes/generate/ai-enhanced', {
-    method: 'POST',
+  return apiFetch<Recipe>("/api/recipes/generate/ai-enhanced", {
+    method: "POST",
     body: JSON.stringify({
       product_ids: productIds,
       preferences,
@@ -247,7 +259,9 @@ export async function generateRecipeAIEnhanced(
 
 // ─── Search Helpers ───────────────────────────────────────────────────────────
 
-export async function searchIngredientSuggestions(query: string): Promise<Product[]> {
+export async function searchIngredientSuggestions(
+  query: string,
+): Promise<Product[]> {
   if (!query.trim()) return [];
   try {
     return await searchProducts(query);

@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
-import { BookOpen, Search, Plus, SlidersHorizontal, ChefHat, BookMarked, AlertCircle } from 'lucide-react';
+import { BookOpen, Search, SlidersHorizontal, ChefHat, BookMarked, AlertCircle } from 'lucide-react';
 import { getRecipes } from '@/lib/api';
 import { Recipe, DifficultyLevel } from '@/types';
 import { RecipeCard, RecipeCardSkeleton } from '@/components/RecipeCard';
@@ -24,10 +23,9 @@ const Recipes = () => {
       setError('');
       const debounceTimer = setTimeout(async () => {
         try {
-          const data = await getRecipes({ 
-            search: search || undefined, 
-            maxTime, 
-            difficulty: difficulty || undefined 
+          const data = await getRecipes({
+            search: search || undefined,
+            maxTime,
           });
           setRecipes(data);
         } catch (err) {
@@ -40,7 +38,10 @@ const Recipes = () => {
       return () => clearTimeout(debounceTimer);
     };
     loadRecipes();
-  }, [search, maxTime, difficulty]);
+  }, [search, maxTime]);
+
+  // Client-side difficulty filter
+  const displayed = difficulty ? recipes.filter(r => r.difficulty_level === difficulty) : recipes;
 
   const diffBtnClass = (d: DifficultyLevel | '') => {
     const isActive = difficulty === d;
@@ -60,15 +61,6 @@ const Recipes = () => {
         icon={<BookOpen size={24} />}
         title="Recipes"
         subtitle="Discover and explore your recipe collection"
-        actions={
-          <Link
-            to="/recipes/create"
-            className="inline-flex items-center gap-1.5 px-4 py-2 bg-primary text-primary-foreground text-sm font-semibold rounded-lg hover:bg-primary/90 transition-colors no-underline"
-          >
-            <Plus size={15} />
-            New Recipe
-          </Link>
-        }
       />
 
       {/* Error message */}
@@ -151,20 +143,15 @@ const Recipes = () => {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
           {Array.from({ length: 6 }).map((_, i) => <RecipeCardSkeleton key={i} />)}
         </div>
-      ) : recipes.length === 0 ? (
+      ) : displayed.length === 0 ? (
         <EmptyState
           icon={<BookMarked size={48} />}
           title="No recipes found"
-          description="Try adjusting your search or filters."
-          action={
-            <Link to="/recipes/create" className="inline-flex items-center gap-1.5 px-4 py-2 bg-primary text-primary-foreground text-sm font-semibold rounded-lg hover:bg-primary/90 transition-colors no-underline">
-              <Plus size={15} /> Create First Recipe
-            </Link>
-          }
+          description="Try adjusting your search or filters, or use AI Generate to create a new one."
         />
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-          {recipes.map(r => <RecipeCard key={r.id} recipe={r} />)}
+          {displayed.map(r => <RecipeCard key={r.id} recipe={r} />)}
         </div>
       )}
     </div>
