@@ -1,7 +1,6 @@
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { ChefHat, LayoutDashboard, ShoppingBasket, BookOpen, Sparkles, LogIn, LogOut } from 'lucide-react';
-import { isAuthenticated, logout, getAuthLabel } from '@/hooks/useAuth';
-import { useState, useEffect } from 'react';
+import { useAuth } from '@/contexts/AuthContext';
 
 const navLinks = [
   { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
@@ -13,16 +12,11 @@ const navLinks = [
 export function Navbar() {
   const location = useLocation();
   const navigate = useNavigate();
-  const [authed, setAuthed] = useState(isAuthenticated());
-
-  useEffect(() => {
-    setAuthed(isAuthenticated());
-  }, [location.pathname]);
+  const { isAuthenticated, user, logout } = useAuth();
 
   const handleAuth = () => {
-    if (authed) {
+    if (isAuthenticated) {
       logout();
-      setAuthed(false);
       navigate('/login');
     } else {
       navigate('/login');
@@ -68,8 +62,8 @@ export function Navbar() {
             onClick={handleAuth}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border text-sm font-medium text-foreground bg-transparent hover:bg-muted transition-colors shrink-0"
           >
-            {authed ? <LogOut size={15} /> : <LogIn size={15} />}
-            <span className="hidden sm:inline">{authed ? `Logout (${getAuthLabel()})` : 'Login'}</span>
+            {isAuthenticated ? <LogOut size={15} /> : <LogIn size={15} />}
+            <span className="hidden sm:inline">{isAuthenticated ? `Logout (${user?.username || 'Chef'})` : 'Login'}</span>
           </button>
         </div>
       </nav>

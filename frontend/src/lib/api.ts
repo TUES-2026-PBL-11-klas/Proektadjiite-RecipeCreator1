@@ -2,6 +2,21 @@ import { PantryItem, Recipe, GenerateResponse, RecipeFiltersState } from '@/type
 import { computeRecipeNutrition } from '@/lib/nutrition';
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || '';
+const AUTH_TOKEN_KEY = 'rc_auth_token';
+const AUTH_USER_KEY = 'rc_auth_user';
+
+// ─── Auth Types ──────────────────────────────────────────────────────────────
+
+export interface AuthUser {
+  id: string;
+  email: string;
+  username: string;
+}
+
+export interface AuthResponse {
+  token: string;
+  user: AuthUser;
+}
 
 // ─── Mock Data ──────────────────────────────────────────────────────────────
 
@@ -133,15 +148,80 @@ const INGREDIENT_SUGGESTIONS = [
 
 async function apiFetch<T>(path: string, options?: RequestInit): Promise<T> {
   if (!API_BASE) throw new Error('No API base');
+  
+  const token = localStorage.getItem(AUTH_TOKEN_KEY);
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+  };
+  
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+
   const res = await fetch(`${API_BASE}${path}`, {
-    headers: { 'Content-Type': 'application/json' },
     ...options,
+    headers: {
+      ...headers,
+      ...(options?.headers || {}),
+    },
   });
+  
+  if (res.status === 401) {
+    // Token invalid/expired - clear auth
+    localStorage.removeItem(AUTH_TOKEN_KEY);
+    localStorage.removeItem(AUTH_USER_KEY);
+    throw new Error('Unauthorized');
+  }
+  
   if (!res.ok) throw new Error(`API error: ${res.status}`);
   return res.json();
 }
 
-// ─── Recipes ─────────────────────────────────────────────────────────────────
+// ─── Authentication ──────────────────────────────────────────────────────────
+
+export async function registerUser(email: string, username: string, password: string): Promise<AuthResponse> {
+  const response = await apiFetch<AuthResponse>('/api/auth/register', {
+    method: 'POST',
+    body: JSON.stringify({ email, username, password }),
+  });
+  
+  localStorage.setItem(AUTH_TOKEN_KEY, response.token);
+  localStorage.setItem(AUTH_USER_KEY, JSON.stringify(response.user));
+  
+  return response;
+}
+
+export async function loginUser(email: string, password: string): Promise<AuthResponse> {
+  const response = await apiFetch<AuthResponse>('/api/auth/login', {
+    method: 'POST',
+    body: JSON.stringify({ email, password }),
+  });
+  
+  localStorage.setItem(AUTH_TOKEN_KEY, response.token);
+  localStorage.setItem(AUTH_USER_KEY, JSON.stringify(response.user));
+  
+  return response;
+}
+
+export function logoutUser(): void {
+  localStorage.removeItem(AUTH_TOKEN_KEY);
+  localStorage.removeItem(AUTH_USER_KEY);
+}
+
+export function getAuthToken(): string | null {
+  return localStorage.getItem(AUTH_TOKEN_KEY);
+}
+
+export function getAuthUser(): AuthUser | null {
+  const user = localStorage.getItem(AUTH_USER_KEY);
+  return user ? JSON.parse(user) : null;
+}
+
+export function isAuthenticated(): boolean {
+  return !!localStorage.getItem(AUTH_TOKEN_KEY);
+}
+
+// ─── Recipes ─────────────────────────────────────────────────────────────}
 
 export async function getRecipes(filters?: Partial<RecipeFiltersState>): Promise<Recipe[]> {
   try {

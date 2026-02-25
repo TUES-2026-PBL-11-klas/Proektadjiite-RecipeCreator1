@@ -1,29 +1,53 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ChefHat, Mail, Lock, LogIn, UserCheck } from 'lucide-react';
-import { login, loginAsGuest } from '@/hooks/useAuth';
+import { ChefHat, Mail, Lock, LogIn, UserCheck, UserPlus } from 'lucide-react';
+import { useAuth } from '@/contexts/AuthContext';
 
 const Login = () => {
   const navigate = useNavigate();
+  const { login, register } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [isRegister, setIsRegister] = useState(false);
+  const [username, setUsername] = useState('');
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
     if (!email.trim()) { setError('Email is required.'); return; }
     if (!password.trim()) { setError('Password is required.'); return; }
+    if (isRegister && !username.trim()) { setError('Username is required.'); return; }
+    
     setLoading(true);
-    await new Promise(r => setTimeout(r, 600)); // simulate network
-    login(email, password);
-    navigate('/dashboard');
+    try {
+      if (isRegister) {
+        await register(email, username, password);
+      } else {
+        await login(email, password);
+      }
+      navigate('/dashboard');
+    } catch (err) {
+      const errorMsg = err instanceof Error ? err.message : 'Authentication failed';
+      setError(errorMsg);
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const handleGuest = () => {
-    loginAsGuest();
-    navigate('/dashboard');
+  const handleGuest = async () => {
+    setError('');
+    setLoading(true);
+    try {
+      // Guest login with test credentials
+      await login('guest@example.com', 'guest');
+      navigate('/dashboard');
+    } catch {
+      setError('Guest login failed');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -40,9 +64,22 @@ const Login = () => {
 
         {/* Card */}
         <div className="bg-card border border-border rounded-xl shadow-sm p-8">
-          <h2 className="text-lg font-semibold text-foreground mb-6">Sign In</h2>
+          <h2 className="text-lg font-semibold text-foreground mb-6">{isRegister ? 'Create Account' : 'Sign In'}</h2>
 
           <form onSubmit={handleSubmit} className="space-y-4">
+            {isRegister && (
+              <div>
+                <label className="block text-sm font-medium text-foreground mb-1.5">Username</label>
+                <input
+                  type="text"
+                  value={username}
+                  onChange={e => setUsername(e.target.value)}
+                  placeholder="your_username"
+                  className="w-full px-4 py-2.5 border border-input rounded-lg bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent transition"
+                />
+              </div>
+            )}
+
             <div>
               <label className="block text-sm font-medium text-foreground mb-1.5">Email address</label>
               <div className="relative">
@@ -82,10 +119,12 @@ const Login = () => {
             >
               {loading ? (
                 <span className="inline-block w-4 h-4 border-2 border-primary-foreground/30 border-t-primary-foreground rounded-full animate-spin" />
+              ) : isRegister ? (
+                <UserPlus size={16} />
               ) : (
                 <LogIn size={16} />
               )}
-              {loading ? 'Signing in…' : 'Sign In'}
+              {loading ? (isRegister ? 'Creating…' : 'Signing in…') : (isRegister ? 'Create Account' : 'Sign In')}
             </button>
           </form>
 
@@ -100,16 +139,22 @@ const Login = () => {
 
           <button
             onClick={handleGuest}
-            className="w-full flex items-center justify-center gap-2 py-2.5 px-4 border border-border bg-muted text-muted-foreground font-medium rounded-lg text-sm hover:bg-secondary hover:text-secondary-foreground transition"
+            type="button"
+            disabled={loading}
+            className="w-full flex items-center justify-center gap-2 py-2.5 px-4 border border-border bg-muted text-muted-foreground font-medium rounded-lg text-sm hover:bg-secondary hover:text-secondary-foreground transition disabled:opacity-60 disabled:cursor-not-allowed"
           >
             <UserCheck size={16} />
             Continue as Guest
           </button>
-        </div>
 
-        <p className="text-center text-xs text-muted-foreground mt-4">
-          Any email & password will work — this is a demo app.
-        </p>
+          <p className="text-center text-xs text-muted-foreground mt-4">
+            {isRegister ? (
+              <>Already have an account? <button type="button" onClick={() => { setIsRegister(false); setError(''); }} className="text-primary hover:underline">Sign in</button></>
+            ) : (
+              <>New user? <button type="button" onClick={() => { setIsRegister(true); setError(''); }} className="text-primary hover:underline">Create account</button></>
+            )}
+          </p>
+        </div>
       </div>
     </div>
   );
