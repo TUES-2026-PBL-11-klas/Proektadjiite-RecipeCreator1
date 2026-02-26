@@ -50,8 +50,6 @@ export interface AuthResponse {
 // ─── Helper ──────────────────────────────────────────────────────────────────
 
 async function apiFetch<T>(path: string, options?: RequestInit): Promise<T> {
-  if (!API_BASE) throw new Error("API base URL not configured");
-
   const token = localStorage.getItem(AUTH_TOKEN_KEY);
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
@@ -61,11 +59,17 @@ async function apiFetch<T>(path: string, options?: RequestInit): Promise<T> {
     headers["Authorization"] = `Bearer ${token}`;
   }
 
-  // Normalize base + path to avoid double slashes (API_BASE may end with a slash)
-  const base = API_BASE.replace(/\/+$|^\s+|\s+$/g, "").replace(/\s+/g, "");
-  const normalizedBase = base.replace(/\/$/, "");
+  // Build the final URL. When API_BASE is empty we fall back to a
+  // relative path so that nginx (inside Docker) can proxy /api/* to the
+  // backend container.
   const normalizedPath = path.startsWith("/") ? path : `/${path}`;
-  const url = `${normalizedBase}${normalizedPath}`;
+  let url = normalizedPath;
+
+  if (API_BASE) {
+    const base = API_BASE.replace(/\/+$|^\s+|\s+$/g, "").replace(/\s+/g, "");
+    const normalizedBase = base.replace(/\/$/, "");
+    url = `${normalizedBase}${normalizedPath}`;
+  }
 
   const res = await fetch(url, {
     ...options,

@@ -1,0 +1,43 @@
+version: "3.9"
+
+services:
+  backend:
+    image: "${DOCKERHUB_USERNAME:-your-dockerhub-username}/recipecreator-backend:latest"
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    env_file:
+      - .env
+      - backend/.env
+    environment:
+      # Allow overriding CORS origins; falls back to defaults in app.py if unset
+      - CORS_ORIGINS=${CORS_ORIGINS:-http://localhost}
+    networks:
+      - recipe-network
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:5000/')"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 40s
+
+  frontend:
+    image: "${DOCKERHUB_USERNAME:-your-dockerhub-username}/recipecreator-frontend:latest"
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+      args:
+        # In Docker we rely on relative /api paths so nginx can proxy
+        VITE_API_BASE_URL: ""
+    depends_on:
+      backend:
+        condition: service_healthy
+    ports:
+      - "80:80"
+    networks:
+      - recipe-network
+
+networks:
+  recipe-network:
+    driver: bridge
+
