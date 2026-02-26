@@ -21,8 +21,13 @@ app.url_map.strict_slashes = False
 def _parse_cors_origins(raw: str | None) -> list[str]:
     """
     Parse a comma‑separated list of origins from the CORS_ORIGINS
-    environment variable. Falls back to common localhost variants when
-    unset so local development "just works".
+    environment variable. We normalise by stripping trailing slashes so
+    values like `http://localhost/` match the request `Origin` header.
+
+    If the variable is unset we default to a handful of localhost
+    variants so development "just works". A value of `*` returns a
+    wildcard which is handled specially by Flask‑CORS (it will not be
+    combined with `supports_credentials=True`).
     """
     if not raw:
         return [
@@ -34,8 +39,16 @@ def _parse_cors_origins(raw: str | None) -> list[str]:
             "http://127.0.0.1:5173",
         ]
 
-    parts = [origin.strip() for origin in raw.split(",")]
-    return [origin for origin in parts if origin]
+    parts = []
+    for origin in raw.split(","):
+        o = origin.strip()
+        if not o:
+            continue
+        # strip trailing slash
+        if o.endswith("/"):
+            o = o[:-1]
+        parts.append(o)
+    return parts
 
 
 cors_origins = _parse_cors_origins(os.getenv("CORS_ORIGINS"))

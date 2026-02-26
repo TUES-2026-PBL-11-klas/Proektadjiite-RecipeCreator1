@@ -55,51 +55,49 @@ async function apiFetch<T>(path: string, options?: RequestInit): Promise<T> {
     "Content-Type": "application/json",
   };
 
-  if (token) {
-    headers["Authorization"] = `Bearer ${token}`;
-  }
+  if (token) headers["Authorization"] = `Bearer ${token}`;
 
-  // Build the final URL. When API_BASE is empty we fall back to a
-  // relative path so that nginx (inside Docker) can proxy /api/* to the
-  // backend container.
   const normalizedPath = path.startsWith("/") ? path : `/${path}`;
-  let url = normalizedPath;
-
+  const candidates: string[] = [];
   if (API_BASE) {
-    const base = API_BASE.replace(/\/+$|^\s+|\s+$/g, "").replace(/\s+/g, "");
+    const base = API_BASE.replace(/\/+$/g, "")
+      .replace(/^\s+|\s+$/g, "")
+      .replace(/\s+/g, "");
     const normalizedBase = base.replace(/\/$/, "");
-    url = `${normalizedBase}${normalizedPath}`;
+    candidates.push(`${normalizedBase}${normalizedPath}`);
+  }
+  candidates.push(normalizedPath);
+
+  let lastError: any;
+  let res: Response | null = null;
+  for (const url of candidates) {
+    try {
+      res = await fetch(url, {
+        ...options,
+        headers: { ...headers, ...(options?.headers || {}) },
+      });
+      break;
+    } catch (err) {
+      lastError = err;
+    }
   }
 
-  const res = await fetch(url, {
-    ...options,
-    headers: {
-      ...headers,
-      ...(options?.headers || {}),
-    },
-  });
+  if (!res) {
+    throw lastError || new Error("Network request failed");
+  }
 
   if (res.status === 401) {
-    // Unauthorized. For login/register we want to show the server's
-    // message (invalid credentials), for all other requests we treat it
-    // as an expired/invalid token and clear storage.
     let message = "Unauthorized";
     try {
       const data = await res.json();
-      if (data && typeof data.error === "string") {
-        message = data.error;
-      }
-    } catch {
-      /* ignore parse errors */
-    }
-
+      if (data && typeof data.error === "string") message = data.error;
+    } catch {}
     const isAuthEndpoint = /^\/api\/auth\/(login|register)/.test(path);
     if (!isAuthEndpoint) {
       localStorage.removeItem(AUTH_TOKEN_KEY);
       localStorage.removeItem(AUTH_USER_KEY);
       message = "Session expired. Please log in again.";
     }
-
     throw new Error(message);
   }
 
@@ -108,9 +106,7 @@ async function apiFetch<T>(path: string, options?: RequestInit): Promise<T> {
     try {
       const data = await res.json();
       errorMsg = data.error || errorMsg;
-    } catch {
-      // Could not parse error response
-    }
+    } catch {}
     throw new Error(errorMsg);
   }
 
