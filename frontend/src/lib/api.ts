@@ -6,7 +6,31 @@ import {
   Product,
 } from "@/types";
 
-const API_BASE = import.meta.env.VITE_API_BASE_URL || "";
+// Determine base URL for API. `VITE_API_BASE_URL` is injected at build time;
+// it will normally be something like `http://localhost:5001` during local
+// development. However, if you open the frontend from another device the
+// hostname in that variable may no longer be correct ("localhost" points at
+// the client). To handle this we infer a base URL using the current page's
+// hostname together with the backend port. The port is derived from the
+// configured value if available, otherwise a sensible default is used.
+const DEFAULT_API_PORT = 5001;
+let port = DEFAULT_API_PORT;
+if (import.meta.env.VITE_API_BASE_URL) {
+  try {
+    const parsed = new URL(import.meta.env.VITE_API_BASE_URL);
+    if (parsed.port) port = parseInt(parsed.port, 10);
+  } catch {
+    // ignore invalid URL
+  }
+}
+const inferredBase =
+  typeof window !== "undefined"
+    ? `${window.location.protocol}//${window.location.hostname}:${port}`
+    : "";
+const API_BASE = import.meta.env.VITE_API_BASE_URL
+  ? import.meta.env.VITE_API_BASE_URL.replace(/\/+$/, "")
+  : inferredBase;
+
 const AUTH_TOKEN_KEY = "rc_auth_token";
 const AUTH_USER_KEY = "rc_auth_user";
 
@@ -52,10 +76,27 @@ async function apiFetch<T>(path: string, options?: RequestInit): Promise<T> {
   });
 
   if (res.status === 401) {
-    // Token invalid/expired - clear auth
-    localStorage.removeItem(AUTH_TOKEN_KEY);
-    localStorage.removeItem(AUTH_USER_KEY);
-    throw new Error("Session expired. Please log in again.");
+    // Unauthorized. For login/register we want to show the server's
+    // message (invalid credentials), for all other requests we treat it
+    // as an expired/invalid token and clear storage.
+    let message = "Unauthorized";
+    try {
+      const data = await res.json();
+      if (data && typeof data.error === "string") {
+        message = data.error;
+      }
+    } catch {
+      /* ignore parse errors */
+    }
+
+    const isAuthEndpoint = /^\/api\/auth\/(login|register)/.test(path);
+    if (!isAuthEndpoint) {
+      localStorage.removeItem(AUTH_TOKEN_KEY);
+      localStorage.removeItem(AUTH_USER_KEY);
+      message = "Session expired. Please log in again.";
+    }
+
+    throw new Error(message);
   }
 
   if (!res.ok) {

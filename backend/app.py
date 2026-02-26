@@ -16,16 +16,17 @@ app.config.from_object(Config)
 app.url_map.strict_slashes = False
 
 # Configure CORS with explicit settings (include common dev ports)
+# During development we allow any origin (the frontend may be accessed via
+# localhost, 127.0.0.1 or a local network address such as 172.20.x.x).
+# The previous hard‑coded list did not include the address shown in the
+# browser console (`172.20.10.2:8080`), which caused the preflight OPTIONS
+# request to be rejected with a 403 and meant login/signup could never
+# reach the API. Using a wildcard here (and echoing back the Origin in
+# after_request) ensures the request succeeds. In production you would
+# tighten this up again or read from an environment variable.
 CORS(
     app,
-    origins=[
-        "http://localhost:8080",
-        "http://127.0.0.1:8080",
-        "http://localhost:3000",
-        "http://127.0.0.1:3000",
-        "http://localhost:5173",
-        "http://127.0.0.1:5173",
-    ],
+    resources={r"/api/*": {"origins": "*"}},
     methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allow_headers=["Content-Type", "Authorization"],
     supports_credentials=True,
@@ -79,6 +80,9 @@ def home():
 
 if __name__ == "__main__":
     logger.info("=" * 80)
-    logger.info("🚀 Starting Recipe Creator API on http://localhost:5000")
+    logger.info("🚀 Starting Recipe Creator API on http://localhost:5001")
     logger.info("=" * 80)
-    app.run(debug=True, port=5000)
+    # Bind to all interfaces for network access (e.g. when frontend is
+    # visited via the local network IP). Flask defaults to 127.0.0.1 which
+    # would make the API unreachable from other machines.
+    app.run(host="0.0.0.0", debug=True, port=5001)
