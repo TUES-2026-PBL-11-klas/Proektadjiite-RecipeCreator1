@@ -32,6 +32,7 @@ jobs:
           context: .
           file: backend/Dockerfile
           push: true
+          platforms: linux/amd64,linux/arm64
           tags: |
             mariastephanova08/recipecreator-backend:latest
             mariastephanova08/recipecreator-backend:${{ steps.vars.outputs.SHORT_SHA }}
@@ -42,6 +43,7 @@ jobs:
           context: .
           file: frontend/Dockerfile
           push: true
+          platforms: linux/amd64,linux/arm64
           build-args: |
             VITE_API_BASE_URL=
           tags: |
